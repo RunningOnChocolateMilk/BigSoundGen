@@ -27,43 +27,80 @@ const VirtualKeyboard = ({ onNoteTrigger, onNoteRelease, onStopAll }) => {
     { note: 'G5', isBlack: false, key: '\\' },
   ]
 
+  // Track active notes to prevent duplicates
+  const [activeNotes, setActiveNotes] = React.useState(new Set())
+
   // Handle keyboard events
   React.useEffect(() => {
     const handleKeyDown = (event) => {
       const key = keys.find(k => k.key === event.key.toLowerCase())
-      if (key) {
+      if (key && !activeNotes.has(key.note)) {
         event.preventDefault()
+        setActiveNotes(prev => new Set([...prev, key.note]))
         onNoteTrigger(key.note)
       }
     }
 
     const handleKeyUp = (event) => {
       const key = keys.find(k => k.key === event.key.toLowerCase())
-      if (key) {
+      if (key && activeNotes.has(key.note)) {
         event.preventDefault()
+        setActiveNotes(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(key.note)
+          return newSet
+        })
         onNoteRelease(key.note)
+      }
+    }
+
+    // Emergency stop with Escape key
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        setActiveNotes(new Set())
+        onStopAll()
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     window.addEventListener('keyup', handleKeyUp)
+    window.addEventListener('keydown', handleEscape)
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
+      window.removeEventListener('keydown', handleEscape)
     }
-  }, [keys, onNoteTrigger, onNoteRelease])
+  }, [keys, onNoteTrigger, onNoteRelease, onStopAll, activeNotes])
 
   const handleMouseDown = (note) => {
-    onNoteTrigger(note)
+    if (!activeNotes.has(note)) {
+      setActiveNotes(prev => new Set([...prev, note]))
+      onNoteTrigger(note)
+    }
   }
 
   const handleMouseUp = (note) => {
-    onNoteRelease(note)
+    if (activeNotes.has(note)) {
+      setActiveNotes(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(note)
+        return newSet
+      })
+      onNoteRelease(note)
+    }
   }
 
   const handleMouseLeave = (note) => {
-    onNoteRelease(note)
+    if (activeNotes.has(note)) {
+      setActiveNotes(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(note)
+        return newSet
+      })
+      onNoteRelease(note)
+    }
   }
 
   return (
@@ -74,9 +111,13 @@ const VirtualKeyboard = ({ onNoteTrigger, onNoteRelease, onStopAll }) => {
           <button
             key={key.note}
             className={`
-              relative z-10 h-24 w-8 bg-white text-gray-800 border border-gray-300 
+              relative z-10 h-24 w-8 border border-gray-300 
               hover:bg-gray-100 active:bg-gray-200 transition-colors duration-100
               rounded-b-lg shadow-lg
+              ${activeNotes.has(key.note) 
+                ? 'bg-synth-primary text-white' 
+                : 'bg-white text-gray-800'
+              }
             `}
             onMouseDown={() => handleMouseDown(key.note)}
             onMouseUp={() => handleMouseUp(key.note)}
@@ -98,9 +139,13 @@ const VirtualKeyboard = ({ onNoteTrigger, onNoteRelease, onStopAll }) => {
             <button
               key={key.note}
               className={`
-                relative z-20 h-16 w-6 bg-gray-800 text-white border border-gray-600
+                relative z-20 h-16 w-6 border border-gray-600
                 hover:bg-gray-700 active:bg-gray-600 transition-colors duration-100
                 rounded-b-lg shadow-lg ml-2
+                ${activeNotes.has(key.note) 
+                  ? 'bg-synth-accent text-white' 
+                  : 'bg-gray-800 text-white'
+                }
               `}
               onMouseDown={() => handleMouseDown(key.note)}
               onMouseUp={() => handleMouseUp(key.note)}
@@ -117,6 +162,19 @@ const VirtualKeyboard = ({ onNoteTrigger, onNoteRelease, onStopAll }) => {
         })}
       </div>
 
+      {/* Emergency Stop Button */}
+      <div className="mt-4 text-center">
+        <button
+          onClick={() => {
+            setActiveNotes(new Set())
+            onStopAll()
+          }}
+          className="btn-secondary px-4 py-2 text-sm"
+        >
+          🛑 Stop All Notes
+        </button>
+      </div>
+
       {/* Instructions */}
       <div className="mt-4 text-center">
         <p className="text-sm text-gray-400">
@@ -124,6 +182,9 @@ const VirtualKeyboard = ({ onNoteTrigger, onNoteRelease, onStopAll }) => {
         </p>
         <p className="text-xs text-gray-500 mt-1">
           Keys: A S D F G H J K L ; ' \ (and W E T Y U O P ] for sharps)
+        </p>
+        <p className="text-xs text-gray-500 mt-1">
+          Press <span className="font-mono bg-gray-700 px-1 rounded">ESC</span> or click "Stop All Notes" to stop all sounds
         </p>
       </div>
     </div>

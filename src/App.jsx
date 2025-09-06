@@ -225,23 +225,36 @@ function App() {
             <VirtualKeyboard 
               onNoteTrigger={triggerNote}
               onNoteRelease={releaseNote}
+              onStopAll={stopAllNotes}
             />
           </div>
         </div>
 
-        {/* Status */}
+        {/* Status and Controls */}
         <div className="text-center space-y-4">
-          <div className={`inline-flex items-center px-4 py-2 rounded-full ${
-            error 
-              ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-              : isInitialized 
-                ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
-                : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
-          }`}>
-            <div className={`w-2 h-2 rounded-full mr-2 ${
-              error ? 'bg-red-400' : isInitialized ? 'bg-green-400' : 'bg-yellow-400'
-            }`}></div>
-            {error ? 'Error Loading' : isInitialized ? 'Synthesizer Ready' : 'Initializing...'}
+          <div className="flex justify-center space-x-4">
+            <div className={`inline-flex items-center px-4 py-2 rounded-full ${
+              error 
+                ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                : isInitialized 
+                  ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
+                  : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+            }`}>
+              <div className={`w-2 h-2 rounded-full mr-2 ${
+                error ? 'bg-red-400' : isInitialized ? 'bg-green-400' : 'bg-yellow-400'
+              }`}></div>
+              {error ? 'Error Loading' : isInitialized ? 'Synthesizer Ready' : 'Initializing...'}
+            </div>
+            
+            {/* Global Emergency Stop */}
+            {isInitialized && (
+              <button
+                onClick={stopAllNotes}
+                className="btn-secondary px-4 py-2 text-sm"
+              >
+                🛑 Emergency Stop
+              </button>
+            )}
           </div>
           
           {/* Debug Information */}
