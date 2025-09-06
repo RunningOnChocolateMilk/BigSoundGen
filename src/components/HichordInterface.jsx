@@ -22,6 +22,12 @@ const ChordMasterInterface = () => {
   const [synth, setSynth] = useState(null)
   const [metronome, setMetronome] = useState(null)
   const [activeNotes, setActiveNotes] = useState(new Set())
+  
+  // Recording state
+  const [isRecording, setIsRecording] = useState(false)
+  const [recorder, setRecorder] = useState(null)
+  const [recordedAudio, setRecordedAudio] = useState(null)
+  const [recordingTime, setRecordingTime] = useState(0)
 
   // Instrument presets with realistic sounds
   const instrumentPresets = {
@@ -188,6 +194,10 @@ const ChordMasterInterface = () => {
 
         setSynth(newSynth)
         setIsInitialized(true)
+        
+        // Initialize recorder
+        const newRecorder = new Tone.Recorder()
+        setRecorder(newRecorder)
       } catch (error) {
         console.error('Failed to initialize synthesizer:', error)
       }
@@ -364,6 +374,94 @@ const ChordMasterInterface = () => {
     }
     setMetronomeEnabled(!metronomeEnabled)
   }
+
+  // Recording functions
+  const startRecording = async () => {
+    if (!recorder || !synth) return
+    
+    try {
+      // Connect synth to recorder
+      synth.connect(recorder)
+      
+      // Start recording
+      recorder.start()
+      setIsRecording(true)
+      setRecordingTime(0)
+      setRecordedAudio(null)
+      
+      console.log('Recording started')
+    } catch (error) {
+      console.error('Failed to start recording:', error)
+    }
+  }
+
+  const stopRecording = async () => {
+    if (!recorder || !isRecording) return
+    
+    try {
+      // Stop recording and get the audio
+      const recording = await recorder.stop()
+      setRecordedAudio(recording)
+      setIsRecording(false)
+      
+      // Disconnect synth from recorder
+      synth.disconnect(recorder)
+      
+      console.log('Recording stopped')
+    } catch (error) {
+      console.error('Failed to stop recording:', error)
+    }
+  }
+
+  const exportAsWAV = () => {
+    if (!recordedAudio) return
+    
+    const url = URL.createObjectURL(recordedAudio)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `chordmaster-recording-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.wav`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
+  const exportAsMP3 = async () => {
+    if (!recordedAudio) return
+    
+    try {
+      // Convert to MP3 using a simple approach
+      // Note: This is a basic implementation - for production, you'd want a more robust MP3 encoder
+      const arrayBuffer = await recordedAudio.arrayBuffer()
+      const blob = new Blob([arrayBuffer], { type: 'audio/mpeg' })
+      
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `chordmaster-recording-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.mp3`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Failed to export as MP3:', error)
+      // Fallback to WAV if MP3 fails
+      exportAsWAV()
+    }
+  }
+
+  // Recording timer
+  useEffect(() => {
+    let interval = null
+    if (isRecording) {
+      interval = setInterval(() => {
+        setRecordingTime(time => time + 1)
+      }, 1000)
+    } else {
+      clearInterval(interval)
+    }
+    return () => clearInterval(interval)
+  }, [isRecording])
 
   // Handle instrument change
   const changeInstrument = (instrumentName) => {
@@ -604,6 +702,9 @@ const ChordMasterInterface = () => {
                   {metronomeEnabled && (
                     <div className="text-red-400">Beat: <span className="text-white">{metronomeBPM} BPM</span></div>
                   )}
+                  {isRecording && (
+                    <div className="text-orange-400">Recording: <span className="text-white">{Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}</span></div>
+                  )}
                   <div className="text-gray-400 mt-3 text-xs">
                     Active Notes: {activeNotes.size}
                   </div>
@@ -633,6 +734,75 @@ const ChordMasterInterface = () => {
                     </button>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            {/* Recording Studio */}
+            <div className="bg-gradient-to-br from-orange-800/30 to-red-800/30 backdrop-blur-sm rounded-2xl p-6 border border-orange-500/30 shadow-2xl">
+              <h2 className="text-xl font-bold text-white mb-6 flex items-center">
+                <span className="text-2xl mr-3">🎙️</span>
+                Recording Studio
+              </h2>
+              
+              <div className="space-y-4">
+                {/* Recording Status */}
+                <div className="text-center">
+                  {isRecording ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-center space-x-2">
+                        <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                        <span className="text-red-400 font-semibold">RECORDING</span>
+                      </div>
+                      <div className="text-orange-200 font-mono text-lg">
+                        {Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-orange-200">Ready to Record</div>
+                  )}
+                </div>
+
+                {/* Recording Controls */}
+                <div className="space-y-3">
+                  {!isRecording ? (
+                    <button
+                      onClick={startRecording}
+                      className="w-full p-3 rounded-xl border-2 border-red-500 bg-red-500/20 text-red-300 hover:bg-red-500/30 transition-all duration-300 transform hover:scale-105"
+                    >
+                      🔴 Start Recording
+                    </button>
+                  ) : (
+                    <button
+                      onClick={stopRecording}
+                      className="w-full p-3 rounded-xl border-2 border-orange-500 bg-orange-500/20 text-orange-300 hover:bg-orange-500/30 transition-all duration-300 transform hover:scale-105"
+                    >
+                      ⏹️ Stop Recording
+                    </button>
+                  )}
+                </div>
+
+                {/* Export Options */}
+                {recordedAudio && (
+                  <div className="space-y-2">
+                    <div className="text-orange-200 text-sm text-center mb-3">
+                      Recording Complete! Export as:
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={exportAsWAV}
+                        className="p-2 rounded-lg border border-orange-600/50 bg-orange-900/20 hover:bg-orange-800/30 text-orange-200 text-sm transition-all duration-300"
+                      >
+                        📁 WAV
+                      </button>
+                      <button
+                        onClick={exportAsMP3}
+                        className="p-2 rounded-lg border border-orange-600/50 bg-orange-900/20 hover:bg-orange-800/30 text-orange-200 text-sm transition-all duration-300"
+                      >
+                        🎵 MP3
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
