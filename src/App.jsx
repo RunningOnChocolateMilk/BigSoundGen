@@ -371,6 +371,7 @@ function App() {
               onStopAll={stopAllNotes}
               currentChord={currentChord}
               scale={scale}
+              activeNotes={activeNotes}
             />
           </div>
 

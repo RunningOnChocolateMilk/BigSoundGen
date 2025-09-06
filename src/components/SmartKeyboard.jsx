@@ -1,6 +1,6 @@
 import React from 'react'
 
-const SmartKeyboard = ({ onNoteTrigger, onNoteRelease, onStopAll, currentChord, scale }) => {
+const SmartKeyboard = ({ onNoteTrigger, onNoteRelease, onStopAll, currentChord, scale, activeNotes }) => {
   // Define keyboard layout - two octaves
   const keys = [
     // First octave
@@ -27,8 +27,8 @@ const SmartKeyboard = ({ onNoteTrigger, onNoteRelease, onStopAll, currentChord, 
     { note: 'G5', isBlack: false, key: '\\' },
   ]
 
-  // Track active notes to prevent duplicates
-  const [activeNotes, setActiveNotes] = React.useState(new Set())
+  // Track local active notes for keyboard events
+  const [localActiveNotes, setLocalActiveNotes] = React.useState(new Set())
 
   // Define scales for highlighting
   const scales = {
@@ -75,18 +75,18 @@ const SmartKeyboard = ({ onNoteTrigger, onNoteRelease, onStopAll, currentChord, 
   React.useEffect(() => {
     const handleKeyDown = (event) => {
       const key = keys.find(k => k.key === event.key.toLowerCase())
-      if (key && !activeNotes.has(key.note)) {
+      if (key && !localActiveNotes.has(key.note)) {
         event.preventDefault()
-        setActiveNotes(prev => new Set([...prev, key.note]))
+        setLocalActiveNotes(prev => new Set([...prev, key.note]))
         onNoteTrigger(key.note)
       }
     }
 
     const handleKeyUp = (event) => {
       const key = keys.find(k => k.key === event.key.toLowerCase())
-      if (key && activeNotes.has(key.note)) {
+      if (key && localActiveNotes.has(key.note)) {
         event.preventDefault()
-        setActiveNotes(prev => {
+        setLocalActiveNotes(prev => {
           const newSet = new Set(prev)
           newSet.delete(key.note)
           return newSet
@@ -99,7 +99,7 @@ const SmartKeyboard = ({ onNoteTrigger, onNoteRelease, onStopAll, currentChord, 
     const handleEscape = (event) => {
       if (event.key === 'Escape') {
         event.preventDefault()
-        setActiveNotes(new Set())
+        setLocalActiveNotes(new Set())
         onStopAll()
       }
     }
@@ -113,18 +113,18 @@ const SmartKeyboard = ({ onNoteTrigger, onNoteRelease, onStopAll, currentChord, 
       window.removeEventListener('keyup', handleKeyUp)
       window.removeEventListener('keydown', handleEscape)
     }
-  }, [keys, onNoteTrigger, onNoteRelease, onStopAll, activeNotes])
+  }, [keys, onNoteTrigger, onNoteRelease, onStopAll, localActiveNotes])
 
   const handleMouseDown = (note) => {
-    if (!activeNotes.has(note)) {
-      setActiveNotes(prev => new Set([...prev, note]))
+    if (!localActiveNotes.has(note)) {
+      setLocalActiveNotes(prev => new Set([...prev, note]))
       onNoteTrigger(note)
     }
   }
 
   const handleMouseUp = (note) => {
-    if (activeNotes.has(note)) {
-      setActiveNotes(prev => {
+    if (localActiveNotes.has(note)) {
+      setLocalActiveNotes(prev => {
         const newSet = new Set(prev)
         newSet.delete(note)
         return newSet
@@ -134,8 +134,8 @@ const SmartKeyboard = ({ onNoteTrigger, onNoteRelease, onStopAll, currentChord, 
   }
 
   const handleMouseLeave = (note) => {
-    if (activeNotes.has(note)) {
-      setActiveNotes(prev => {
+    if (localActiveNotes.has(note)) {
+      setLocalActiveNotes(prev => {
         const newSet = new Set(prev)
         newSet.delete(note)
         return newSet
@@ -146,7 +146,7 @@ const SmartKeyboard = ({ onNoteTrigger, onNoteRelease, onStopAll, currentChord, 
 
   // Get key styling based on harmony and activity
   const getKeyStyle = (key) => {
-    const isActive = activeNotes.has(key.note)
+    const isActive = localActiveNotes.has(key.note) || (activeNotes && activeNotes.has(key.note))
     const isHarmonious = harmoniousNotes.includes(key.note)
     const isInScale = scaleNotes.includes(key.note)
     
@@ -248,7 +248,7 @@ const SmartKeyboard = ({ onNoteTrigger, onNoteRelease, onStopAll, currentChord, 
       <div className="mt-4 text-center">
         <button
           onClick={() => {
-            setActiveNotes(new Set())
+            setLocalActiveNotes(new Set())
             onStopAll()
           }}
           className="btn-secondary px-4 py-2 text-sm"
