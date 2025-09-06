@@ -62,7 +62,7 @@ const NashvilleChordMapper = ({ onChordTrigger, onChordRelease, currentKey = 'C'
     }
   }
 
-  const chords = chordMappings[currentKey] || chordMappings['C']
+n  const chords = chordMappings[currentKey] || chordMappings['C']
 
   // Number key to chord mapping
   const numberKeyMapping = {

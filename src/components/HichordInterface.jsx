@@ -23,55 +23,67 @@ const ChordMasterInterface = () => {
   const [metronome, setMetronome] = useState(null)
   const [activeNotes, setActiveNotes] = useState(new Set())
 
-  // Instrument presets (exactly like Hichord)
+  // Instrument presets with realistic sounds
   const instrumentPresets = {
     piano: {
       name: 'Piano',
       icon: '🎹',
-      waveform: 'sine',
-      adsr: { attack: 0.1, decay: 0.3, sustain: 0.7, release: 1.0 },
-      filterCutoff: 2000,
-      effects: { reverb: true, delay: false }
+      waveform: 'triangle',
+      adsr: { attack: 0.01, decay: 0.3, sustain: 0.3, release: 1.5 },
+      filterCutoff: 3000,
+      effects: { reverb: true, delay: false },
+      detune: 0,
+      volume: -6
     },
     synth: {
       name: 'Synth',
       icon: '🎛️',
       waveform: 'sawtooth',
-      adsr: { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.5 },
-      filterCutoff: 1500,
-      effects: { reverb: false, delay: true }
+      adsr: { attack: 0.1, decay: 0.3, sustain: 0.7, release: 0.8 },
+      filterCutoff: 1200,
+      effects: { reverb: false, delay: true },
+      detune: 0,
+      volume: -3
     },
     bass: {
       name: 'Bass',
       icon: '🎸',
       waveform: 'square',
-      adsr: { attack: 0.1, decay: 0.1, sustain: 0.9, release: 0.3 },
-      filterCutoff: 400,
-      effects: { reverb: false, delay: false }
+      adsr: { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.4 },
+      filterCutoff: 300,
+      effects: { reverb: false, delay: false },
+      detune: 0,
+      volume: -2
     },
     pad: {
       name: 'Pad',
       icon: '☁️',
       waveform: 'sine',
-      adsr: { attack: 1.0, decay: 1.0, sustain: 0.8, release: 2.0 },
-      filterCutoff: 800,
-      effects: { reverb: true, delay: true }
+      adsr: { attack: 2.0, decay: 1.5, sustain: 0.9, release: 3.0 },
+      filterCutoff: 600,
+      effects: { reverb: true, delay: true },
+      detune: 0,
+      volume: -8
     },
     lead: {
       name: 'Lead',
       icon: '🎷',
       waveform: 'sawtooth',
-      adsr: { attack: 0.05, decay: 0.1, sustain: 0.9, release: 0.2 },
-      filterCutoff: 1800,
-      effects: { reverb: true, delay: false }
+      adsr: { attack: 0.02, decay: 0.1, sustain: 0.9, release: 0.3 },
+      filterCutoff: 2000,
+      effects: { reverb: true, delay: false },
+      detune: 0,
+      volume: -4
     },
     organ: {
       name: 'Organ',
       icon: '🎹',
       waveform: 'square',
-      adsr: { attack: 0.0, decay: 0.0, sustain: 1.0, release: 0.1 },
-      filterCutoff: 1200,
-      effects: { reverb: true, delay: false }
+      adsr: { attack: 0.0, decay: 0.0, sustain: 1.0, release: 0.05 },
+      filterCutoff: 1500,
+      effects: { reverb: true, delay: false },
+      detune: 0,
+      volume: -5
     }
   }
 
@@ -133,21 +145,46 @@ const ChordMasterInterface = () => {
     }
   }
 
-  // Initialize synthesizer
+  // Initialize synthesizer with realistic settings
   useEffect(() => {
     const initSynth = async () => {
       try {
+        // Create a more realistic synthesizer
         const newSynth = new Tone.PolySynth(Tone.Synth, {
-          oscillator: { type: 'sine' },
-          envelope: { attack: 0.1, decay: 0.3, sustain: 0.7, release: 1.0 }
-        }).toDestination()
+          oscillator: { 
+            type: 'triangle',
+            detune: 0
+          },
+          envelope: { 
+            attack: 0.01, 
+            decay: 0.3, 
+            sustain: 0.3, 
+            release: 1.5 
+          },
+          volume: -6
+        })
 
-        // Add effects
-        const reverb = new Tone.Reverb(2).toDestination()
-        const delay = new Tone.PingPongDelay('4n', 0.2).toDestination()
+        // Add filter for more realistic sound shaping
+        const filter = new Tone.Filter(3000, 'lowpass')
         
-        newSynth.connect(reverb)
-        newSynth.connect(delay)
+        // Add effects
+        const reverb = new Tone.Reverb({
+          decay: 2,
+          wet: 0.3
+        })
+        
+        const delay = new Tone.PingPongDelay({
+          delayTime: '8n',
+          feedback: 0.2,
+          wet: 0.2
+        })
+
+        // Connect the audio chain
+        newSynth.connect(filter)
+        filter.connect(reverb)
+        filter.connect(delay)
+        reverb.toDestination()
+        delay.toDestination()
 
         setSynth(newSynth)
         setIsInitialized(true)
@@ -294,11 +331,18 @@ const ChordMasterInterface = () => {
     const preset = instrumentPresets[instrumentName]
     if (!preset || !synth) return
 
+    // Apply all instrument parameters
     synth.set({
-      oscillator: { type: preset.waveform },
-      envelope: preset.adsr
+      oscillator: { 
+        type: preset.waveform,
+        detune: preset.detune || 0
+      },
+      envelope: preset.adsr,
+      volume: preset.volume || 0
     })
+    
     setCurrentInstrument(instrumentName)
+    console.log(`Switched to ${preset.name} instrument`)
   }
 
   // Handle key change
