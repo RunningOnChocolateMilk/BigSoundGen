@@ -4,10 +4,13 @@ import SmartKeyboard from './components/SmartKeyboard'
 import WaveformSelector from './components/WaveformSelector'
 import ADSRControls from './components/ADSRControls'
 import FilterControl from './components/FilterControl'
-import EffectsControls from './components/EffectsControls'
+import AdvancedEffectsProcessor from './components/AdvancedEffectsProcessor'
 import RandomizeButton from './components/RandomizeButton'
 import SmartPresets from './components/SmartPresets'
-import ChordProgressionGenerator from './components/ChordProgressionGenerator'
+import NashvilleChordMapper from './components/NashvilleChordMapper'
+import ChordModificationController from './components/ChordModificationController'
+import SmartChordProgressionAI from './components/SmartChordProgressionAI'
+import VisualFeedbackDisplay from './components/VisualFeedbackDisplay'
 import MusicGuidance from './components/MusicGuidance'
 
 function App() {
@@ -34,7 +37,12 @@ function App() {
   // Smart features state
   const [currentPreset, setCurrentPreset] = useState(null)
   const [currentChord, setCurrentChord] = useState(null)
+  const [currentProgression, setCurrentProgression] = useState(null)
+  const [currentKey, setCurrentKey] = useState('C')
+  const [currentModification, setCurrentModification] = useState('major')
   const [scale, setScale] = useState('major')
+  const [activeNotes, setActiveNotes] = useState(new Set())
+  const [aiSuggestions, setAiSuggestions] = useState([])
 
   // Initialize synthesizer
   useEffect(() => {
@@ -110,6 +118,7 @@ function App() {
     if (synth && isInitialized) {
       try {
         synth.triggerAttack(note)
+        setActiveNotes(prev => new Set([...prev, note]))
         console.log('Playing note:', note)
       } catch (error) {
         console.error('Error triggering note:', error)
@@ -122,6 +131,11 @@ function App() {
     if (synth && isInitialized) {
       try {
         synth.triggerRelease(note)
+        setActiveNotes(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(note)
+          return newSet
+        })
         console.log('Releasing note:', note)
       } catch (error) {
         console.error('Error releasing note:', error)
@@ -134,11 +148,31 @@ function App() {
     if (synth && isInitialized) {
       try {
         synth.releaseAll()
+        setActiveNotes(new Set())
         console.log('Stopped all notes')
       } catch (error) {
         console.error('Error stopping notes:', error)
       }
     }
+  }
+
+  // Handle chord modification
+  const handleChordModify = (modification) => {
+    setCurrentModification(modification)
+    console.log('Chord modification:', modification)
+  }
+
+  // Handle AI chord suggestions
+  const handleAIChordSuggest = (chord, suggestions) => {
+    console.log('AI suggested chord:', chord, suggestions)
+    setAiSuggestions(suggestions)
+  }
+
+  // Handle Nashville chord selection
+  const handleNashvilleChord = (chordData) => {
+    setCurrentChord(chordData)
+    // Trigger all notes in the chord
+    chordData.notes.forEach(note => triggerNote(note))
   }
 
   // Handle preset selection
@@ -222,21 +256,56 @@ function App() {
           </p>
         </header>
 
-        {/* Smart Features Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        {/* Hichord-Level Smart Features */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+          {/* Nashville Number System */}
+          <div className="bg-synth-dark/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
+            <NashvilleChordMapper 
+              onChordTrigger={triggerNote}
+              onChordRelease={releaseNote}
+              currentKey={currentKey}
+              currentChord={currentChord}
+            />
+          </div>
+          
+          {/* Chord Modification Controller */}
+          <div className="bg-synth-dark/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
+            <ChordModificationController 
+              onChordModify={handleChordModify}
+              currentModification={currentModification}
+            />
+          </div>
+          
+          {/* Smart Chord AI */}
+          <div className="bg-synth-dark/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
+            <SmartChordProgressionAI 
+              onProgressionSelect={setCurrentProgression}
+              currentProgression={currentProgression}
+              onAIChordSuggest={handleAIChordSuggest}
+            />
+          </div>
+        </div>
+
+        {/* Smart Presets */}
+        <div className="mb-8">
           <div className="bg-synth-dark/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
             <SmartPresets 
               onPresetSelect={handlePresetSelect}
               currentPreset={currentPreset}
             />
           </div>
-          
-          <div className="bg-synth-dark/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
-            <ChordProgressionGenerator 
-              onChordSelect={handleChordSelect}
-              currentChord={currentChord}
-            />
-          </div>
+        </div>
+
+        {/* Visual Feedback Display */}
+        <div className="mb-8">
+          <VisualFeedbackDisplay 
+            currentChord={currentChord}
+            currentKey={currentKey}
+            activeNotes={activeNotes}
+            currentModification={currentModification}
+            currentProgression={currentProgression}
+            aiSuggestions={aiSuggestions}
+          />
         </div>
 
         {/* Main Controls */}
@@ -278,9 +347,9 @@ function App() {
 
             <div className="bg-synth-dark/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
               <h2 className="text-xl font-semibold mb-4 text-synth-accent">
-                Effects
+                Advanced Effects
               </h2>
-              <EffectsControls 
+              <AdvancedEffectsProcessor 
                 effects={effects} 
                 onEffectsChange={setEffects} 
               />
