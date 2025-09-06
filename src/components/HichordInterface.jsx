@@ -217,19 +217,30 @@ const ChordMasterInterface = () => {
 
     const handleKeyDown = (event) => {
       const key = event.key
-      if (numberKeyMapping[key] && !activeChord) {
+      if (numberKeyMapping[key]) {
         event.preventDefault()
         const chordNumber = numberKeyMapping[key]
+        
+        // If there's already an active chord, release it first
+        if (activeChord && activeChord !== chordNumber) {
+          releaseChord(activeChord)
+        }
+        
+        // Trigger the new chord
         triggerChord(chordNumber)
       }
     }
 
     const handleKeyUp = (event) => {
       const key = event.key
-      if (numberKeyMapping[key] && activeChord === numberKeyMapping[key]) {
+      if (numberKeyMapping[key]) {
         event.preventDefault()
         const chordNumber = numberKeyMapping[key]
-        releaseChord(chordNumber)
+        
+        // Only release if this is the currently active chord
+        if (activeChord === chordNumber) {
+          releaseChord(chordNumber)
+        }
       }
     }
 
