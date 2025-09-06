@@ -6,7 +6,7 @@ const ChordMasterInterface = () => {
   const [isInitialized, setIsInitialized] = useState(false)
   const [currentKey, setCurrentKey] = useState('C')
   const [currentInstrument, setCurrentInstrument] = useState('piano')
-  const [activeChord, setActiveChord] = useState(null)
+  const [activeChords, setActiveChords] = useState(new Set())
   const [chordModification, setChordModification] = useState('major')
   const [metronomeEnabled, setMetronomeEnabled] = useState(false)
   const [metronomeBPM, setMetronomeBPM] = useState(120)
@@ -208,15 +208,20 @@ const ChordMasterInterface = () => {
     }
   }, [isInitialized])
 
-  // Handle chord trigger
+  // Handle chord trigger (polyphonic - can play multiple chords)
   const triggerChord = (chordNumber) => {
     if (!synth || !isInitialized) return
     
     const chordData = chordMappings[currentKey][chordNumber]
     if (!chordData) return
 
+    // Check if chord is already playing
+    if (activeChords.has(chordNumber)) return
+
     console.log('Triggering chord:', chordNumber, chordData.notes)
-    setActiveChord(chordNumber)
+    
+    // Add chord to active chords
+    setActiveChords(prev => new Set([...prev, chordNumber]))
     
     // Trigger each note in the chord
     chordData.notes.forEach(note => {
@@ -225,24 +230,38 @@ const ChordMasterInterface = () => {
     })
   }
 
-  // Handle chord release
+  // Handle chord release (polyphonic)
   const releaseChord = (chordNumber) => {
     if (!synth || !isInitialized) return
     
     const chordData = chordMappings[currentKey][chordNumber]
     if (!chordData) return
 
+    // Check if chord is actually playing
+    if (!activeChords.has(chordNumber)) return
+
     console.log('Releasing chord:', chordNumber, chordData.notes)
+    
+    // Remove chord from active chords
+    setActiveChords(prev => {
+      const newSet = new Set(prev)
+      newSet.delete(chordNumber)
+      return newSet
+    })
     
     // Release each note in the chord
     chordData.notes.forEach(note => {
       synth.triggerRelease(note)
+      setActiveNotes(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(note)
+        return newSet
+      })
     })
-    
-    // Clear active state
-    setActiveChord(null)
-    setActiveNotes(new Set())
   }
+
+  // Track pressed keys to prevent sticky behavior
+  const [pressedKeys, setPressedKeys] = useState(new Set())
 
   // Keyboard event handlers for number keys
   useEffect(() => {
@@ -266,43 +285,54 @@ const ChordMasterInterface = () => {
         return
       }
       
-      if (numberKeyMapping[key]) {
+      if (numberKeyMapping[key] && !pressedKeys.has(key)) {
         event.preventDefault()
         const chordNumber = numberKeyMapping[key]
         
-        // If there's already an active chord, release it first
-        if (activeChord && activeChord !== chordNumber) {
-          releaseChord(activeChord)
-        }
+        // Mark key as pressed
+        setPressedKeys(prev => new Set([...prev, key]))
         
-        // Trigger the new chord
+        // Trigger the chord (polyphonic - can play multiple chords)
         triggerChord(chordNumber)
       }
     }
 
     const handleKeyUp = (event) => {
       const key = event.key
-      if (numberKeyMapping[key]) {
+      if (numberKeyMapping[key] && pressedKeys.has(key)) {
         event.preventDefault()
         const chordNumber = numberKeyMapping[key]
         
-        console.log('Key up:', key, 'chord:', chordNumber, 'active:', activeChord)
+        console.log('Key up:', key, 'chord:', chordNumber, 'active chords:', Array.from(activeChords))
         
-        // Always try to release the chord for this key
-        if (activeChord === chordNumber) {
-          releaseChord(chordNumber)
-        }
+        // Mark key as released
+        setPressedKeys(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(key)
+          return newSet
+        })
+        
+        // Release the specific chord for this key
+        releaseChord(chordNumber)
       }
+    }
+
+    // Add window blur event to stop all notes when window loses focus
+    const handleWindowBlur = () => {
+      console.log('Window lost focus - stopping all notes')
+      stopAllNotes()
     }
 
     window.addEventListener('keydown', handleKeyDown)
     window.addEventListener('keyup', handleKeyUp)
+    window.addEventListener('blur', handleWindowBlur)
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
+      window.removeEventListener('blur', handleWindowBlur)
     }
-  }, [synth, isInitialized, currentKey, activeChord])
+  }, [synth, isInitialized, currentKey, activeChords, pressedKeys])
 
   // Stop all notes (emergency stop)
   const stopAllNotes = () => {
@@ -310,8 +340,9 @@ const ChordMasterInterface = () => {
       try {
         console.log('Emergency stop - releasing all notes')
         synth.releaseAll()
-        setActiveChord(null)
+        setActiveChords(new Set())
         setActiveNotes(new Set())
+        setPressedKeys(new Set()) // Clear pressed keys too
         console.log('All notes stopped')
       } catch (error) {
         console.error('Error stopping notes:', error)
@@ -356,13 +387,14 @@ const ChordMasterInterface = () => {
   // Handle key change
   const changeKey = (newKey) => {
     // Stop any currently playing chords
-    if (synth && isInitialized && activeChord) {
+    if (synth && isInitialized && activeChords.size > 0) {
       synth.releaseAll()
     }
     
     setCurrentKey(newKey)
-    setActiveChord(null)
+    setActiveChords(new Set())
     setActiveNotes(new Set())
+    setPressedKeys(new Set()) // Clear pressed keys when changing key
   }
 
   // Cleanup effect to stop all notes when component unmounts
@@ -508,7 +540,7 @@ const ChordMasterInterface = () => {
                   Chord Matrix
                 </h2>
                 <p className="text-indigo-200 text-lg">Key of <span className="font-mono text-indigo-300 text-xl font-bold">{currentKey}</span></p>
-                <p className="text-indigo-300/70 text-sm mt-2">Press number keys 1-7 or click buttons • ESC to stop all</p>
+                <p className="text-indigo-300/70 text-sm mt-2">Press number keys 1-7 or click buttons • Hold multiple keys for polyphonic chords • ESC to stop all</p>
               </div>
 
               {/* Chord Buttons */}
@@ -523,7 +555,7 @@ const ChordMasterInterface = () => {
                   { number: 'vii°', label: '7', description: 'Leading Tone', color: 'from-purple-500 to-indigo-500' }
                 ].map((button) => {
                   const chordData = chordMappings[currentKey][button.number]
-                  const isActive = activeChord === button.number
+                  const isActive = activeChords.has(button.number)
                   
                   return (
                     <button
@@ -562,8 +594,12 @@ const ChordMasterInterface = () => {
                 <div className="space-y-2">
                   <div className="text-blue-400">Key: <span className="text-white">{currentKey}</span></div>
                   <div className="text-purple-400">Sound: <span className="text-white">{instrumentPresets[currentInstrument].name}</span></div>
-                  {activeChord && (
-                    <div className="text-yellow-400">Chord: <span className="text-white">{chordMappings[currentKey][activeChord].name}</span></div>
+                  {activeChords.size > 0 && (
+                    <div className="text-yellow-400">
+                      Chords: <span className="text-white">
+                        {Array.from(activeChords).map(chord => chordMappings[currentKey][chord].name).join(', ')}
+                      </span>
+                    </div>
                   )}
                   {metronomeEnabled && (
                     <div className="text-red-400">Beat: <span className="text-white">{metronomeBPM} BPM</span></div>

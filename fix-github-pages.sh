@@ -1,4 +1,4 @@
-#!/bin/bash
+s getti#!/bin/bash
 
 # Quick Fix Script for GitHub Pages White Screen Issue
 echo "🔧 BigSoundGen - GitHub Pages Fix Script"
