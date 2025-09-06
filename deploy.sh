@@ -1,4 +1,4 @@
-#!/bin/bash
+2#!/bin/bash
 
 # GitHub Pages Deployment Script for BigSoundGen
 # This script helps you deploy your synthesizer to GitHub Pages
