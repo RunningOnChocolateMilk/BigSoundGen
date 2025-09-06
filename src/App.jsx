@@ -11,6 +11,8 @@ function App() {
   // Synthesizer state
   const [synth, setSynth] = useState(null)
   const [isInitialized, setIsInitialized] = useState(false)
+  const [error, setError] = useState(null)
+  const [debugInfo, setDebugInfo] = useState('')
   
   // Synth parameters
   const [waveform, setWaveform] = useState('sine')
@@ -30,6 +32,15 @@ function App() {
   useEffect(() => {
     const initSynth = async () => {
       try {
+        setDebugInfo('Initializing Tone.js...')
+        
+        // Check if Tone.js is available
+        if (typeof Tone === 'undefined') {
+          throw new Error('Tone.js is not loaded')
+        }
+        
+        setDebugInfo('Creating synthesizer...')
+        
         // Create synthesizer with polyphony
         const newSynth = new Tone.PolySynth(Tone.Synth, {
           oscillator: {
@@ -43,6 +54,8 @@ function App() {
           }
         }).toDestination()
 
+        setDebugInfo('Setting up audio chain...')
+        
         // Add filter
         const filter = new Tone.Filter(filterCutoff, 'lowpass')
         newSynth.connect(filter)
@@ -62,8 +75,12 @@ function App() {
 
         setSynth(newSynth)
         setIsInitialized(true)
+        setDebugInfo('Synthesizer ready!')
+        setError(null)
       } catch (error) {
         console.error('Failed to initialize synthesizer:', error)
+        setError(error.message)
+        setDebugInfo(`Error: ${error.message}`)
       }
     }
 
@@ -191,17 +208,37 @@ function App() {
         </div>
 
         {/* Status */}
-        <div className="text-center">
+        <div className="text-center space-y-4">
           <div className={`inline-flex items-center px-4 py-2 rounded-full ${
-            isInitialized 
-              ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
-              : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+            error 
+              ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+              : isInitialized 
+                ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
+                : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
           }`}>
             <div className={`w-2 h-2 rounded-full mr-2 ${
-              isInitialized ? 'bg-green-400' : 'bg-yellow-400'
+              error ? 'bg-red-400' : isInitialized ? 'bg-green-400' : 'bg-yellow-400'
             }`}></div>
-            {isInitialized ? 'Synthesizer Ready' : 'Initializing...'}
+            {error ? 'Error Loading' : isInitialized ? 'Synthesizer Ready' : 'Initializing...'}
           </div>
+          
+          {/* Debug Information */}
+          {debugInfo && (
+            <div className="text-sm text-gray-400">
+              {debugInfo}
+            </div>
+          )}
+          
+          {/* Error Details */}
+          {error && (
+            <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 max-w-md mx-auto">
+              <div className="text-red-400 font-semibold mb-2">Error Details:</div>
+              <div className="text-red-300 text-sm">{error}</div>
+              <div className="text-xs text-gray-400 mt-2">
+                Check browser console for more details
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
