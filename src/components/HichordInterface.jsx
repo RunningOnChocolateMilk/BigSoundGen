@@ -215,7 +215,10 @@ const ChordMasterInterface = () => {
     const chordData = chordMappings[currentKey][chordNumber]
     if (!chordData) return
 
+    console.log('Triggering chord:', chordNumber, chordData.notes)
     setActiveChord(chordNumber)
+    
+    // Trigger each note in the chord
     chordData.notes.forEach(note => {
       synth.triggerAttack(note)
       setActiveNotes(prev => new Set([...prev, note]))
@@ -229,7 +232,9 @@ const ChordMasterInterface = () => {
     const chordData = chordMappings[currentKey][chordNumber]
     if (!chordData) return
 
-    // Release all notes in the chord
+    console.log('Releasing chord:', chordNumber, chordData.notes)
+    
+    // Release each note in the chord
     chordData.notes.forEach(note => {
       synth.triggerRelease(note)
     })
@@ -281,7 +286,9 @@ const ChordMasterInterface = () => {
         event.preventDefault()
         const chordNumber = numberKeyMapping[key]
         
-        // Only release if this is the currently active chord
+        console.log('Key up:', key, 'chord:', chordNumber, 'active:', activeChord)
+        
+        // Always try to release the chord for this key
         if (activeChord === chordNumber) {
           releaseChord(chordNumber)
         }
@@ -301,10 +308,11 @@ const ChordMasterInterface = () => {
   const stopAllNotes = () => {
     if (synth && isInitialized) {
       try {
+        console.log('Emergency stop - releasing all notes')
         synth.releaseAll()
         setActiveChord(null)
         setActiveNotes(new Set())
-        console.log('Stopped all notes')
+        console.log('All notes stopped')
       } catch (error) {
         console.error('Error stopping notes:', error)
       }
@@ -347,10 +355,24 @@ const ChordMasterInterface = () => {
 
   // Handle key change
   const changeKey = (newKey) => {
+    // Stop any currently playing chords
+    if (synth && isInitialized && activeChord) {
+      synth.releaseAll()
+    }
+    
     setCurrentKey(newKey)
     setActiveChord(null)
     setActiveNotes(new Set())
   }
+
+  // Cleanup effect to stop all notes when component unmounts
+  useEffect(() => {
+    return () => {
+      if (synth && isInitialized) {
+        synth.releaseAll()
+      }
+    }
+  }, [synth, isInitialized])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white">
