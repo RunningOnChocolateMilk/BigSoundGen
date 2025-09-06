@@ -192,15 +192,14 @@ const ChordMasterInterface = () => {
     const chordData = chordMappings[currentKey][chordNumber]
     if (!chordData) return
 
-    setActiveChord(null)
+    // Release all notes in the chord
     chordData.notes.forEach(note => {
       synth.triggerRelease(note)
-      setActiveNotes(prev => {
-        const newSet = new Set(prev)
-        newSet.delete(note)
-        return newSet
-      })
     })
+    
+    // Clear active state
+    setActiveChord(null)
+    setActiveNotes(new Set())
   }
 
   // Keyboard event handlers for number keys
@@ -217,6 +216,14 @@ const ChordMasterInterface = () => {
 
     const handleKeyDown = (event) => {
       const key = event.key
+      
+      // Emergency stop with ESC key
+      if (key === 'Escape') {
+        event.preventDefault()
+        stopAllNotes()
+        return
+      }
+      
       if (numberKeyMapping[key]) {
         event.preventDefault()
         const chordNumber = numberKeyMapping[key]
@@ -252,6 +259,20 @@ const ChordMasterInterface = () => {
       window.removeEventListener('keyup', handleKeyUp)
     }
   }, [synth, isInitialized, currentKey, activeChord])
+
+  // Stop all notes (emergency stop)
+  const stopAllNotes = () => {
+    if (synth && isInitialized) {
+      try {
+        synth.releaseAll()
+        setActiveChord(null)
+        setActiveNotes(new Set())
+        console.log('Stopped all notes')
+      } catch (error) {
+        console.error('Error stopping notes:', error)
+      }
+    }
+  }
 
   // Handle metronome toggle
   const toggleMetronome = () => {
@@ -300,10 +321,22 @@ const ChordMasterInterface = () => {
             </div>
           </div>
           
-          {/* Status Indicator */}
-          <div className="flex items-center space-x-3 bg-white/10 rounded-full px-4 py-2">
-            <div className={`w-3 h-3 rounded-full ${isInitialized ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}></div>
-            <span className="text-sm font-medium">{isInitialized ? 'System Ready' : 'Initializing...'}</span>
+          {/* Status Indicator & Emergency Stop */}
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-3 bg-white/10 rounded-full px-4 py-2">
+              <div className={`w-3 h-3 rounded-full ${isInitialized ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}></div>
+              <span className="text-sm font-medium">{isInitialized ? 'System Ready' : 'Initializing...'}</span>
+            </div>
+            
+            {/* Emergency Stop Button */}
+            {isInitialized && (
+              <button
+                onClick={stopAllNotes}
+                className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg"
+              >
+                🛑 Stop All
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -409,7 +442,7 @@ const ChordMasterInterface = () => {
                   Chord Matrix
                 </h2>
                 <p className="text-indigo-200 text-lg">Key of <span className="font-mono text-indigo-300 text-xl font-bold">{currentKey}</span></p>
-                <p className="text-indigo-300/70 text-sm mt-2">Press number keys 1-7 or click buttons</p>
+                <p className="text-indigo-300/70 text-sm mt-2">Press number keys 1-7 or click buttons • ESC to stop all</p>
               </div>
 
               {/* Chord Buttons */}
