@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "A browser-based music synthesizer web app using React and Tone.js",
   "main": "index.js",
-  "homepage": "https://RunningOnChocalateMilk.github.io/BigSoundGen",
+  "homepage": "https://yourusername.github.io/BigSoundGen",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
