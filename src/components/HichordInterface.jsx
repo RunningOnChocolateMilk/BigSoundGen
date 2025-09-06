@@ -203,6 +203,45 @@ const ChordMasterInterface = () => {
     })
   }
 
+  // Keyboard event handlers for number keys
+  useEffect(() => {
+    const numberKeyMapping = { 
+      '1': 'I', 
+      '2': 'ii', 
+      '3': 'iii', 
+      '4': 'IV', 
+      '5': 'V', 
+      '6': 'vi', 
+      '7': 'vii°' 
+    }
+
+    const handleKeyDown = (event) => {
+      const key = event.key
+      if (numberKeyMapping[key] && !activeChord) {
+        event.preventDefault()
+        const chordNumber = numberKeyMapping[key]
+        triggerChord(chordNumber)
+      }
+    }
+
+    const handleKeyUp = (event) => {
+      const key = event.key
+      if (numberKeyMapping[key] && activeChord === numberKeyMapping[key]) {
+        event.preventDefault()
+        const chordNumber = numberKeyMapping[key]
+        releaseChord(chordNumber)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+    }
+  }, [synth, isInitialized, currentKey, activeChord])
+
   // Handle metronome toggle
   const toggleMetronome = () => {
     if (!metronome) return
