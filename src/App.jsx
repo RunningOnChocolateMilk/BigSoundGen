@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react'
 import * as Tone from 'tone'
-import VirtualKeyboard from './components/VirtualKeyboard'
+import SmartKeyboard from './components/SmartKeyboard'
 import WaveformSelector from './components/WaveformSelector'
 import ADSRControls from './components/ADSRControls'
 import FilterControl from './components/FilterControl'
 import EffectsControls from './components/EffectsControls'
 import RandomizeButton from './components/RandomizeButton'
+import SmartPresets from './components/SmartPresets'
+import ChordProgressionGenerator from './components/ChordProgressionGenerator'
+import MusicGuidance from './components/MusicGuidance'
 
 function App() {
   // Synthesizer state
@@ -27,6 +30,11 @@ function App() {
     reverb: false,
     delay: false
   })
+
+  // Smart features state
+  const [currentPreset, setCurrentPreset] = useState(null)
+  const [currentChord, setCurrentChord] = useState(null)
+  const [scale, setScale] = useState('major')
 
   // Initialize synthesizer
   useEffect(() => {
@@ -133,6 +141,50 @@ function App() {
     }
   }
 
+  // Handle preset selection
+  const handlePresetSelect = (preset) => {
+    if (preset) {
+      setWaveform(preset.settings.waveform)
+      setAdsr(preset.settings.adsr)
+      setFilterCutoff(preset.settings.filterCutoff)
+      setEffects(preset.settings.effects)
+      setCurrentPreset(preset.id)
+      
+      // Set appropriate scale for preset
+      const scaleMap = {
+        ambient: 'major',
+        electronic: 'minor',
+        classical: 'major',
+        retro: 'pentatonic',
+        bass: 'blues',
+        pad: 'major'
+      }
+      setScale(scaleMap[preset.id] || 'major')
+    } else {
+      // Random preset
+      const presets = ['ambient', 'electronic', 'classical', 'retro', 'bass', 'pad']
+      const randomPreset = presets[Math.floor(Math.random() * presets.length)]
+      handlePresetSelect({ id: randomPreset })
+    }
+  }
+
+  // Handle chord progression selection
+  const handleChordSelect = (chordProgression) => {
+    if (chordProgression) {
+      setCurrentChord(chordProgression)
+    } else {
+      // Random chord progression
+      const progressions = [
+        { id: 'happy', chords: ['C4', 'F4', 'G4', 'C4'], pattern: 'I - IV - V - I' },
+        { id: 'sad', chords: ['Am4', 'Dm4', 'G4', 'Am4'], pattern: 'i - iv - V - i' },
+        { id: 'pop', chords: ['C4', 'Am4', 'F4', 'G4'], pattern: 'I - vi - IV - V' },
+        { id: 'blues', chords: ['C4', 'C4', 'F4', 'C4', 'G4', 'F4', 'C4', 'G4'], pattern: 'I - I - IV - I - V - IV - I - V' }
+      ]
+      const randomProgression = progressions[Math.floor(Math.random() * progressions.length)]
+      setCurrentChord(randomProgression)
+    }
+  }
+
   // Randomize all parameters
   const randomizePatch = () => {
     const waveforms = ['sine', 'square', 'sawtooth', 'triangle']
@@ -150,6 +202,8 @@ function App() {
       reverb: Math.random() > 0.5,
       delay: Math.random() > 0.5
     })
+    setCurrentPreset(null)
+    setCurrentChord(null)
   }
 
   return (
@@ -160,13 +214,33 @@ function App() {
           <h1 className="text-4xl font-bold text-synth-primary mb-2">
             BigSoundGen
           </h1>
-          <p className="text-gray-300 text-lg">
-            Browser-based Music Synthesizer
+          <p className="text-gray-300 text-lg mb-2">
+            Idiot-Proof Music Synthesizer
+          </p>
+          <p className="text-gray-400 text-sm">
+            Make great music without knowing music theory! 🎵
           </p>
         </header>
 
+        {/* Smart Features Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          <div className="bg-synth-dark/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
+            <SmartPresets 
+              onPresetSelect={handlePresetSelect}
+              currentPreset={currentPreset}
+            />
+          </div>
+          
+          <div className="bg-synth-dark/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
+            <ChordProgressionGenerator 
+              onChordSelect={handleChordSelect}
+              currentChord={currentChord}
+            />
+          </div>
+        </div>
+
         {/* Main Controls */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 mb-8">
           {/* Left Column - Oscillator & ADSR */}
           <div className="space-y-6">
             <div className="bg-synth-dark/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
@@ -220,12 +294,23 @@ function App() {
           {/* Right Column - Keyboard */}
           <div className="bg-synth-dark/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
             <h2 className="text-xl font-semibold mb-4 text-synth-accent">
-              Virtual Keyboard
+              Smart Keyboard
             </h2>
-            <VirtualKeyboard 
+            <SmartKeyboard 
               onNoteTrigger={triggerNote}
               onNoteRelease={releaseNote}
               onStopAll={stopAllNotes}
+              currentChord={currentChord}
+              scale={scale}
+            />
+          </div>
+
+          {/* Guidance Column */}
+          <div>
+            <MusicGuidance 
+              currentPreset={currentPreset}
+              currentChord={currentChord}
+              scale={scale}
             />
           </div>
         </div>
