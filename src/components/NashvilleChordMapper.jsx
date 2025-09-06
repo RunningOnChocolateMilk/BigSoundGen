@@ -1,6 +1,9 @@
 import React from 'react'
 
 const NashvilleChordMapper = ({ onChordTrigger, onChordRelease, currentKey = 'C', currentChord }) => {
+  const [activeChord, setActiveChord] = React.useState(null)
+  const [pressedKeys, setPressedKeys] = React.useState(new Set())
+
   // Nashville Number System chord mappings
   const chordMappings = {
     'C': {
@@ -59,8 +62,59 @@ const NashvilleChordMapper = ({ onChordTrigger, onChordRelease, currentKey = 'C'
     }
   }
 
-  const [activeChord, setActiveChord] = React.useState(null)
   const chords = chordMappings[currentKey] || chordMappings['C']
+
+  // Number key to chord mapping
+  const numberKeyMapping = {
+    '1': 'I',
+    '2': 'ii', 
+    '3': 'iii',
+    '4': 'IV',
+    '5': 'V',
+    '6': 'vi',
+    '7': 'vii°'
+  }
+
+  // Handle keyboard events for number keys
+  React.useEffect(() => {
+    const handleKeyDown = (event) => {
+      const key = event.key
+      if (numberKeyMapping[key] && !pressedKeys.has(key)) {
+        event.preventDefault()
+        const chordNumber = numberKeyMapping[key]
+        const chordData = chords[chordNumber]
+        if (chordData) {
+          setPressedKeys(prev => new Set([...prev, key]))
+          handleChordPress(chordNumber, chordData)
+        }
+      }
+    }
+
+    const handleKeyUp = (event) => {
+      const key = event.key
+      if (numberKeyMapping[key] && pressedKeys.has(key)) {
+        event.preventDefault()
+        const chordNumber = numberKeyMapping[key]
+        const chordData = chords[chordNumber]
+        if (chordData) {
+          setPressedKeys(prev => {
+            const newSet = new Set(prev)
+            newSet.delete(key)
+            return newSet
+          })
+          handleChordRelease(chordNumber, chordData)
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+    }
+  }, [chords, pressedKeys])
 
   const handleChordPress = (chordNumber, chordData) => {
     setActiveChord(chordNumber)
@@ -96,7 +150,7 @@ const NashvilleChordMapper = ({ onChordTrigger, onChordRelease, currentKey = 'C'
         </h3>
         <p className="text-sm text-gray-400 mb-4">
           Key of <span className="font-mono text-synth-primary">{currentKey}</span> - 
-          Press any number to play harmonized chords!
+          Press number keys 1-7 or click buttons to play harmonized chords!
         </p>
       </div>
 
@@ -105,6 +159,7 @@ const NashvilleChordMapper = ({ onChordTrigger, onChordRelease, currentKey = 'C'
         {chordButtons.map((button) => {
           const chordData = chords[button.number]
           const isActive = activeChord === button.number
+          const isKeyPressed = pressedKeys.has(button.label)
           
           return (
             <button
@@ -114,12 +169,12 @@ const NashvilleChordMapper = ({ onChordTrigger, onChordRelease, currentKey = 'C'
               onMouseLeave={() => handleChordRelease(button.number, chordData)}
               className={`
                 relative p-4 rounded-lg border-2 transition-all duration-200
-                ${isActive 
+                ${isActive || isKeyPressed
                   ? 'border-synth-primary bg-synth-primary/20 text-synth-primary' 
                   : 'border-gray-600 bg-synth-dark/50 hover:border-synth-secondary hover:bg-synth-secondary/10'
                 }
               `}
-              title={`${button.number}: ${chordData.name} - ${button.description}`}
+              title={`${button.number}: ${chordData.name} - ${button.description} (Press ${button.label})`}
             >
               <div className="text-center">
                 <div className="text-2xl font-bold mb-1">
@@ -179,6 +234,11 @@ const NashvilleChordMapper = ({ onChordTrigger, onChordRelease, currentKey = 'C'
           <div className="text-sm text-gray-400 mt-1">
             Notes: {chords[activeChord].notes.join(' - ')}
           </div>
+          {pressedKeys.size > 0 && (
+            <div className="text-xs text-synth-accent mt-2">
+              Keys pressed: {Array.from(pressedKeys).join(', ')}
+            </div>
+          )}
         </div>
       )}
     </div>
