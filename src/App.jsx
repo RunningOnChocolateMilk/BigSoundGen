@@ -100,14 +100,36 @@ function App() {
   // Handle note trigger
   const triggerNote = (note) => {
     if (synth && isInitialized) {
-      synth.triggerAttack(note)
+      try {
+        synth.triggerAttack(note)
+        console.log('Playing note:', note)
+      } catch (error) {
+        console.error('Error triggering note:', error)
+      }
     }
   }
 
   // Handle note release
   const releaseNote = (note) => {
     if (synth && isInitialized) {
-      synth.triggerRelease(note)
+      try {
+        synth.triggerRelease(note)
+        console.log('Releasing note:', note)
+      } catch (error) {
+        console.error('Error releasing note:', error)
+      }
+    }
+  }
+
+  // Stop all notes (emergency stop)
+  const stopAllNotes = () => {
+    if (synth && isInitialized) {
+      try {
+        synth.releaseAll()
+        console.log('Stopped all notes')
+      } catch (error) {
+        console.error('Error stopping notes:', error)
+      }
     }
   }
 

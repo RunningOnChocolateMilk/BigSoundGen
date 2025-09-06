@@ -1,6 +1,6 @@
 import React from 'react'
 
-const VirtualKeyboard = ({ onNoteTrigger, onNoteRelease }) => {
+const VirtualKeyboard = ({ onNoteTrigger, onNoteRelease, onStopAll }) => {
   // Define keyboard layout - two octaves
   const keys = [
     // First octave
