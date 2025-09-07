@@ -1,8 +1,8 @@
 import React from 'react'
-import SimpleDAWInterface from './components/SimpleDAWInterface'
+import ChordMasterInterface from './components/HichordInterface'
 
 function App() {
-  return <SimpleDAWInterface />
+  return <ChordMasterInterface />
 }
 
 export default App
