@@ -8,6 +8,19 @@ const ChordMasterInterface = () => {
   const [currentInstrument, setCurrentInstrument] = useState('piano')
   const [activeChords, setActiveChords] = useState(new Set())
   const [chordModification, setChordModification] = useState('major')
+  
+  // Instrument manipulation controls
+  const [instrumentControls, setInstrumentControls] = useState({
+    attack: 0.02,
+    decay: 0.3,
+    sustain: 0.4,
+    release: 1.2,
+    volume: -6,
+    detune: 0,
+    filterCutoff: 3000,
+    filterResonance: 0.5,
+    oscillatorType: 'triangle'
+  })
   const [metronomeEnabled, setMetronomeEnabled] = useState(false)
   const [metronomeBPM, setMetronomeBPM] = useState(120)
   const [metronomePattern, setMetronomePattern] = useState('4/4')
@@ -327,19 +340,16 @@ const ChordMasterInterface = () => {
           sidechainLFO
         }
 
-        // Connect synth directly to destination for basic audio
-        newSynth.toDestination()
-        
-        // Store effects for optional use
-        // newSynth.connect(filter)
-        // filter.connect(eq)
-        // eq.connect(sidechain)
-        // sidechain.connect(sidechainDuck)
-        // sidechainDuck.connect(tremolo)
-        // tremolo.connect(flanger)
-        // flanger.connect(reverb)
-        // reverb.connect(delay)
-        // delay.toDestination()
+        // Connect the audio chain properly - series connection
+        newSynth.connect(filter)
+        filter.connect(eq)
+        eq.connect(sidechain)
+        sidechain.connect(sidechainDuck)
+        sidechainDuck.connect(tremolo)
+        tremolo.connect(flanger)
+        flanger.connect(reverb)
+        reverb.connect(delay)
+        delay.toDestination()
 
         // Store effects chain with synth
         newSynth.effectsChain = effectsChain
@@ -700,6 +710,35 @@ const ChordMasterInterface = () => {
     console.log(`Switched to ${preset.name} instrument`)
   }
 
+  // Update instrument controls in real-time
+  const updateInstrumentControls = () => {
+    if (!synth || !isInitialized) return
+    
+    // Update synthesizer settings
+    synth.set({
+      oscillator: { 
+        type: instrumentControls.oscillatorType,
+        detune: instrumentControls.detune
+      },
+      envelope: {
+        attack: instrumentControls.attack,
+        decay: instrumentControls.decay,
+        sustain: instrumentControls.sustain,
+        release: instrumentControls.release
+      },
+      volume: instrumentControls.volume
+    })
+    
+    // Update filter
+    if (synth.effectsChain && synth.effectsChain.filter) {
+      synth.effectsChain.filter.set({
+        frequency: instrumentControls.filterCutoff,
+        Q: instrumentControls.filterResonance,
+        type: 'lowpass'
+      })
+    }
+  }
+
   // Update sidechain settings
   const updateSidechain = () => {
     if (!synth || !synth.effectsChain) return
@@ -776,6 +815,11 @@ const ChordMasterInterface = () => {
       updateEQ()
     }
   }, [eqSettings, effects.eq])
+
+  // Update instrument controls when they change
+  useEffect(() => {
+    updateInstrumentControls()
+  }, [instrumentControls, synth, isInitialized])
 
   // Handle key change
   const changeKey = (newKey) => {
@@ -889,6 +933,170 @@ const ChordMasterInterface = () => {
                     </div>
                   </button>
                 ))}
+              </div>
+            </div>
+
+            {/* Instrument Controls */}
+            <div className="bg-gradient-to-br from-indigo-800/30 to-purple-800/30 backdrop-blur-sm rounded-2xl p-6 border border-indigo-500/30 shadow-2xl">
+              <h2 className="text-xl font-bold text-white mb-6 flex items-center">
+                <span className="text-2xl mr-3">🎛️</span>
+                Instrument Controls
+              </h2>
+              
+              <div className="space-y-6">
+                {/* ADSR Envelope */}
+                <div className="space-y-4">
+                  <h3 className="text-indigo-200 font-semibold">ADSR Envelope</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-xs text-indigo-300">
+                        <span>Attack</span>
+                        <span>{instrumentControls.attack.toFixed(2)}s</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0.001"
+                        max="2"
+                        step="0.01"
+                        value={instrumentControls.attack}
+                        onChange={(e) => setInstrumentControls(prev => ({ ...prev, attack: parseFloat(e.target.value) }))}
+                        className="w-full h-1 bg-indigo-900/50 rounded-lg appearance-none cursor-pointer"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-xs text-indigo-300">
+                        <span>Decay</span>
+                        <span>{instrumentControls.decay.toFixed(2)}s</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0.01"
+                        max="2"
+                        step="0.01"
+                        value={instrumentControls.decay}
+                        onChange={(e) => setInstrumentControls(prev => ({ ...prev, decay: parseFloat(e.target.value) }))}
+                        className="w-full h-1 bg-indigo-900/50 rounded-lg appearance-none cursor-pointer"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-xs text-indigo-300">
+                        <span>Sustain</span>
+                        <span>{instrumentControls.sustain.toFixed(2)}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.01"
+                        value={instrumentControls.sustain}
+                        onChange={(e) => setInstrumentControls(prev => ({ ...prev, sustain: parseFloat(e.target.value) }))}
+                        className="w-full h-1 bg-indigo-900/50 rounded-lg appearance-none cursor-pointer"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-xs text-indigo-300">
+                        <span>Release</span>
+                        <span>{instrumentControls.release.toFixed(2)}s</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0.01"
+                        max="5"
+                        step="0.01"
+                        value={instrumentControls.release}
+                        onChange={(e) => setInstrumentControls(prev => ({ ...prev, release: parseFloat(e.target.value) }))}
+                        className="w-full h-1 bg-indigo-900/50 rounded-lg appearance-none cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Oscillator Controls */}
+                <div className="space-y-4">
+                  <h3 className="text-indigo-200 font-semibold">Oscillator</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <div className="text-xs text-indigo-300">Waveform</div>
+                      <select
+                        value={instrumentControls.oscillatorType}
+                        onChange={(e) => setInstrumentControls(prev => ({ ...prev, oscillatorType: e.target.value }))}
+                        className="w-full p-2 rounded-lg bg-indigo-900/30 text-indigo-300 border border-indigo-600/50"
+                      >
+                        <option value="sine">Sine</option>
+                        <option value="triangle">Triangle</option>
+                        <option value="sawtooth">Sawtooth</option>
+                        <option value="square">Square</option>
+                        <option value="fatsawtooth">Fat Sawtooth</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-xs text-indigo-300">
+                        <span>Detune</span>
+                        <span>{instrumentControls.detune}¢</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="-100"
+                        max="100"
+                        value={instrumentControls.detune}
+                        onChange={(e) => setInstrumentControls(prev => ({ ...prev, detune: parseInt(e.target.value) }))}
+                        className="w-full h-1 bg-indigo-900/50 rounded-lg appearance-none cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Filter Controls */}
+                <div className="space-y-4">
+                  <h3 className="text-indigo-200 font-semibold">Filter</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-xs text-indigo-300">
+                        <span>Cutoff</span>
+                        <span>{instrumentControls.filterCutoff}Hz</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="100"
+                        max="8000"
+                        value={instrumentControls.filterCutoff}
+                        onChange={(e) => setInstrumentControls(prev => ({ ...prev, filterCutoff: parseInt(e.target.value) }))}
+                        className="w-full h-1 bg-indigo-900/50 rounded-lg appearance-none cursor-pointer"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-xs text-indigo-300">
+                        <span>Resonance</span>
+                        <span>{instrumentControls.filterResonance.toFixed(1)}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="10"
+                        step="0.1"
+                        value={instrumentControls.filterResonance}
+                        onChange={(e) => setInstrumentControls(prev => ({ ...prev, filterResonance: parseFloat(e.target.value) }))}
+                        className="w-full h-1 bg-indigo-900/50 rounded-lg appearance-none cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Volume Control */}
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs text-indigo-300">
+                    <span>Volume</span>
+                    <span>{instrumentControls.volume}dB</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="-30"
+                    max="0"
+                    value={instrumentControls.volume}
+                    onChange={(e) => setInstrumentControls(prev => ({ ...prev, volume: parseInt(e.target.value) }))}
+                    className="w-full h-1 bg-indigo-900/50 rounded-lg appearance-none cursor-pointer"
+                  />
+                </div>
               </div>
             </div>
 
