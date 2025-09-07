@@ -48,11 +48,148 @@ const SimpleDAWInterface = () => {
 
   // Instrument presets
   const instrumentPresets = {
-    piano: { name: 'Piano', waveform: 'triangle' },
-    synth: { name: 'Synth', waveform: 'sawtooth' },
-    bass: { name: 'Bass', waveform: 'square' },
-    strings: { name: 'Strings', waveform: 'triangle' }
+    piano: {
+      name: 'Piano',
+      icon: '🎹',
+      waveform: 'triangle',
+      adsr: { attack: 0.01, decay: 0.3, sustain: 0.3, release: 1.5 },
+      filterCutoff: 3000,
+      effects: { reverb: true, delay: false },
+      detune: 0,
+      volume: -6
+    },
+    synth: {
+      name: 'Synth',
+      icon: '🎛️',
+      waveform: 'sawtooth',
+      adsr: { attack: 0.1, decay: 0.3, sustain: 0.7, release: 0.8 },
+      filterCutoff: 1200,
+      effects: { reverb: false, delay: true },
+      detune: 0,
+      volume: -3
+    },
+    bass: {
+      name: 'Bass',
+      icon: '🎸',
+      waveform: 'square',
+      adsr: { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.4 },
+      filterCutoff: 300,
+      effects: { reverb: false, delay: false },
+      detune: 0,
+      volume: -2
+    },
+    pad: {
+      name: 'Pad',
+      icon: '☁️',
+      waveform: 'sine',
+      adsr: { attack: 2.0, decay: 1.5, sustain: 0.9, release: 3.0 },
+      filterCutoff: 600,
+      effects: { reverb: true, delay: true },
+      detune: 0,
+      volume: -8
+    },
+    lead: {
+      name: 'Lead',
+      icon: '🎷',
+      waveform: 'sawtooth',
+      adsr: { attack: 0.02, decay: 0.1, sustain: 0.9, release: 0.3 },
+      filterCutoff: 2000,
+      effects: { reverb: true, delay: false },
+      detune: 0,
+      volume: -4
+    },
+    organ: {
+      name: 'Organ',
+      icon: '🎹',
+      waveform: 'square',
+      adsr: { attack: 0.0, decay: 0.0, sustain: 1.0, release: 0.05 },
+      filterCutoff: 1500,
+      effects: { reverb: true, delay: false },
+      detune: 0,
+      volume: -5
+    },
+    strings: {
+      name: 'Strings',
+      icon: '🎻',
+      waveform: 'triangle',
+      adsr: { attack: 0.5, decay: 1.0, sustain: 0.8, release: 2.5 },
+      filterCutoff: 2500,
+      effects: { reverb: true, delay: false },
+      detune: 0,
+      volume: -7
+    },
+    brass: {
+      name: 'Brass',
+      icon: '🎺',
+      waveform: 'sawtooth',
+      adsr: { attack: 0.1, decay: 0.4, sustain: 0.7, release: 0.8 },
+      filterCutoff: 1800,
+      effects: { reverb: true, delay: false },
+      detune: 0,
+      volume: -4
+    },
+    choir: {
+      name: 'Choir',
+      icon: '👥',
+      waveform: 'sine',
+      adsr: { attack: 0.3, decay: 0.8, sustain: 0.9, release: 2.0 },
+      filterCutoff: 1200,
+      effects: { reverb: true, delay: true },
+      detune: 0,
+      volume: -6
+    },
+    bell: {
+      name: 'Bell',
+      icon: '🔔',
+      waveform: 'triangle',
+      adsr: { attack: 0.0, decay: 0.1, sustain: 0.1, release: 3.0 },
+      filterCutoff: 4000,
+      effects: { reverb: true, delay: false },
+      detune: 0,
+      volume: -8
+    },
+    pluck: {
+      name: 'Pluck',
+      icon: '🪕',
+      waveform: 'triangle',
+      adsr: { attack: 0.0, decay: 0.05, sustain: 0.0, release: 0.3 },
+      filterCutoff: 2000,
+      effects: { reverb: false, delay: true },
+      detune: 0,
+      volume: -3
+    },
+    ambient: {
+      name: 'Ambient',
+      icon: '🌌',
+      waveform: 'sine',
+      adsr: { attack: 3.0, decay: 2.0, sustain: 0.9, release: 5.0 },
+      filterCutoff: 800,
+      effects: { reverb: true, delay: true },
+      detune: 0,
+      volume: -12
+    }
   }
+
+  // Effects state
+  const [effects, setEffects] = useState({
+    reverb: false,
+    delay: false,
+    tremolo: false,
+    flanger: false,
+    sidechain: false,
+    eq: false
+  })
+
+  // ADSR state
+  const [adsr, setAdsr] = useState({
+    attack: 0.1,
+    decay: 0.2,
+    sustain: 0.7,
+    release: 1.2
+  })
+
+  // Filter state
+  const [filterCutoff, setFilterCutoff] = useState(2000)
 
   // Initialize everything
   useEffect(() => {
@@ -62,12 +199,67 @@ const SimpleDAWInterface = () => {
         envelope: { attack: 0.1, decay: 0.2, sustain: 0.7, release: 1.2 }
       }).toDestination()
 
+      // Add effects chain
+      const reverb = new Tone.Reverb(0.3).toDestination()
+      const delay = new Tone.PingPongDelay('8n', 0.1).toDestination()
+      const filter = new Tone.Filter(2000, 'lowpass').toDestination()
+      const eq = new Tone.EQ3(-10, 0, 10).toDestination()
+      const compressor = new Tone.Compressor(-30, 3).toDestination()
+
+      newSynth.chain(filter, eq, compressor, delay, reverb)
+      
+      // Store effects chain for later use
+      newSynth.effectsChain = { reverb, delay, filter, eq, compressor }
+      
       setSynth(newSynth)
       setIsInitialized(true)
     }
 
     initSynth()
   }, [])
+
+  // Handle instrument change
+  const changeInstrument = (instrumentName) => {
+    const preset = instrumentPresets[instrumentName]
+    if (!preset || !synth) return
+
+    // Apply all instrument parameters
+    synth.set({
+      oscillator: { 
+        type: preset.waveform,
+        detune: preset.detune
+      },
+      envelope: preset.adsr,
+      volume: preset.volume
+    })
+
+    // Update filter cutoff
+    if (synth.effectsChain && synth.effectsChain.filter) {
+      synth.effectsChain.filter.set({
+        frequency: preset.filterCutoff
+      })
+    }
+
+    // Update effects
+    if (synth.effectsChain) {
+      const { reverb, delay } = synth.effectsChain
+      if (preset.effects.reverb) {
+        reverb.wet.value = 0.3
+      } else {
+        reverb.wet.value = 0
+      }
+      
+      if (preset.effects.delay) {
+        delay.wet.value = 0.1
+      } else {
+        delay.wet.value = 0
+      }
+    }
+
+    setCurrentInstrument(instrumentName)
+    setAdsr(preset.adsr)
+    setFilterCutoff(preset.filterCutoff)
+  }
 
   // Chord functions
   const triggerChord = (chordNumber) => {
@@ -259,161 +451,160 @@ const SimpleDAWInterface = () => {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex">
-        {/* Left Track Control Panel */}
-        <div className="w-64 bg-gray-800 border-r border-gray-700 p-4">
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-gray-300 mb-3">Tracks</h3>
-            {tracks.map((track) => (
-              <div key={track.id} className="bg-gray-700 rounded p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-sm font-semibold">{track.name}</div>
-                  <div className="flex gap-1">
-                    <button 
-                      onClick={() => setTracks(prev => prev.map(t => 
-                        t.id === track.id ? { ...t, solo: !t.solo } : t
-                      ))}
-                      className={`w-6 h-6 rounded text-xs ${
-                        track.solo ? 'bg-yellow-600' : 'bg-gray-600'
-                      }`}
-                    >
-                      S
-                    </button>
-                    <button 
-                      onClick={() => setTracks(prev => prev.map(t => 
-                        t.id === track.id ? { ...t, mute: !t.mute } : t
-                      ))}
-                      className={`w-6 h-6 rounded text-xs ${
-                        track.mute ? 'bg-red-600' : 'bg-gray-600'
-                      }`}
-                    >
-                      M
-                    </button>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-400">Vol</span>
-                    <input 
-                      type="range" 
-                      min="0" 
-                      max="1" 
-                      step="0.1" 
-                      value={track.volume}
-                      onChange={(e) => setTracks(prev => prev.map(t => 
-                        t.id === track.id ? { ...t, volume: parseFloat(e.target.value) } : t
-                      ))}
-                      className="flex-1"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-400">Pan</span>
-                    <input 
-                      type="range" 
-                      min="-1" 
-                      max="1" 
-                      step="0.1" 
-                      value="0"
-                      className="flex-1"
-                    />
-                  </div>
-                </div>
-              </div>
-            ))}
-            <button className="w-full py-2 bg-gray-700 rounded text-sm hover:bg-gray-600">
-              + Add Track
-            </button>
-          </div>
-        </div>
-
-        {/* Central Timeline/Arrangement View */}
-        <div className="flex-1 flex flex-col">
-          {/* Timeline Header */}
-          <div className="h-8 bg-gray-800 border-b border-gray-700 flex items-center px-4">
-            <div className="flex gap-8 text-sm text-gray-400">
-              {Array.from({ length: 16 }, (_, i) => (
-                <div key={i} className="w-8 text-center">{i + 1}</div>
-              ))}
-            </div>
-          </div>
-
-          {/* Track Area */}
-          <div className="flex-1 bg-gray-900 p-4">
-            <div className="space-y-2">
+      <div className="flex-1 flex flex-col">
+        {/* Top Row - Timeline and Tracks */}
+        <div className="flex-1 flex">
+          {/* Left Track Control Panel */}
+          <div className="w-64 bg-gray-800 border-r border-gray-700 p-4">
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-gray-300 mb-3">Tracks</h3>
               {tracks.map((track) => (
-                <div key={track.id} className="h-16 bg-gray-800 rounded border border-gray-700 flex items-center px-4">
-                  <div className="w-32 text-sm font-semibold">{track.name}</div>
-                  <div className="flex-1 flex gap-2">
-                    {track.hasContent ? (
-                      <div className="h-12 bg-blue-600 rounded flex items-center px-3">
-                        <div className="text-sm">Audio Clip</div>
-                      </div>
-                    ) : (
-                      <div className="h-12 bg-gray-700 rounded flex items-center px-3 text-gray-500">
-                        Empty
-                      </div>
-                    )}
+                <div key={track.id} className="bg-gray-700 rounded p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-sm font-semibold">{track.name}</div>
+                    <div className="flex gap-1">
+                      <button 
+                        onClick={() => setTracks(prev => prev.map(t => 
+                          t.id === track.id ? { ...t, solo: !t.solo } : t
+                        ))}
+                        className={`w-6 h-6 rounded text-xs ${
+                          track.solo ? 'bg-yellow-600' : 'bg-gray-600'
+                        }`}
+                      >
+                        S
+                      </button>
+                      <button 
+                        onClick={() => setTracks(prev => prev.map(t => 
+                          t.id === track.id ? { ...t, mute: !t.mute } : t
+                        ))}
+                        className={`w-6 h-6 rounded text-xs ${
+                          track.mute ? 'bg-red-600' : 'bg-gray-600'
+                        }`}
+                      >
+                        M
+                      </button>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-400">Vol</span>
+                      <input 
+                        type="range" 
+                        min="0" 
+                        max="1" 
+                        step="0.1" 
+                        value={track.volume}
+                        onChange={(e) => setTracks(prev => prev.map(t => 
+                          t.id === track.id ? { ...t, volume: parseFloat(e.target.value) } : t
+                        ))}
+                        className="flex-1"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-400">Pan</span>
+                      <input 
+                        type="range" 
+                        min="-1" 
+                        max="1" 
+                        step="0.1" 
+                        value="0"
+                        className="flex-1"
+                      />
+                    </div>
                   </div>
                 </div>
               ))}
+              <button className="w-full py-2 bg-gray-700 rounded text-sm hover:bg-gray-600">
+                + Add Track
+              </button>
+            </div>
+          </div>
+
+          {/* Central Timeline/Arrangement View */}
+          <div className="flex-1 flex flex-col">
+            {/* Timeline Header */}
+            <div className="h-8 bg-gray-800 border-b border-gray-700 flex items-center px-4">
+              <div className="flex gap-8 text-sm text-gray-400">
+                {Array.from({ length: 16 }, (_, i) => (
+                  <div key={i} className="w-8 text-center">{i + 1}</div>
+                ))}
+              </div>
+            </div>
+
+            {/* Track Area */}
+            <div className="flex-1 bg-gray-900 p-4">
+              <div className="space-y-2">
+                {tracks.map((track) => (
+                  <div key={track.id} className="h-16 bg-gray-800 rounded border border-gray-700 flex items-center px-4">
+                    <div className="w-32 text-sm font-semibold">{track.name}</div>
+                    <div className="flex-1 flex gap-2">
+                      {track.hasContent ? (
+                        <div className="h-12 bg-blue-600 rounded flex items-center px-3">
+                          <div className="text-sm">Audio Clip</div>
+                        </div>
+                      ) : (
+                        <div className="h-12 bg-gray-700 rounded flex items-center px-3 text-gray-500">
+                          Empty
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Right Control Panel */}
-        <div className="w-80 bg-gray-800 border-l border-gray-700 p-4">
-          <div className="space-y-6">
-            {/* Synth Controls */}
-            <div className="bg-gray-700 rounded p-4">
-              <h3 className="text-lg font-semibold mb-4 flex items-center">
-                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M20 2H4c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM8 20H4v-4h4v4zm0-6H4v-4h4v4zm0-6H4V4h4v4zm6 12h-4v-4h4v4zm0-6h-4v-4h4v4zm0-6h-4V4h4v4zm6 12h-4v-4h4v4zm0-6h-4v-4h4v4zm0-6h-4V4h4v4z"/>
-                </svg>
-                Synthesizer
-              </h3>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm text-gray-300 block mb-2">Instrument</label>
-                  <select 
-                    value={currentInstrument}
-                    onChange={(e) => setCurrentInstrument(e.target.value)}
-                    className="w-full px-3 py-2 rounded bg-gray-600 text-white border border-gray-500"
+        {/* Bottom Synth Panel */}
+        <div className="h-64 bg-gray-800 border-t border-gray-700 p-4">
+          <div className="h-full flex gap-6">
+            {/* Instrument Selection */}
+            <div className="w-64">
+              <h3 className="text-sm font-semibold text-gray-300 mb-3">Instruments</h3>
+              <div className="grid grid-cols-2 gap-2">
+                {Object.entries(instrumentPresets).map(([key, preset]) => (
+                  <button
+                    key={key}
+                    onClick={() => changeInstrument(key)}
+                    className={`p-3 rounded-lg border-2 transition-all duration-300 ${
+                      currentInstrument === key
+                        ? 'border-blue-400 bg-blue-400/20 text-blue-300'
+                        : 'border-gray-600 bg-gray-700 hover:border-gray-500'
+                    }`}
                   >
-                    {Object.keys(instrumentPresets).map(key => (
-                      <option key={key} value={key}>{instrumentPresets[key].name}</option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="text-sm text-gray-300 block mb-2">Key</label>
-                  <select 
-                    value={currentKey}
-                    onChange={(e) => setCurrentKey(e.target.value)}
-                    className="w-full px-3 py-2 rounded bg-gray-600 text-white border border-gray-500"
-                  >
-                    <option value="C">C</option>
-                    <option value="G">G</option>
-                    <option value="D">D</option>
-                    <option value="A">A</option>
-                    <option value="E">E</option>
-                    <option value="F">F</option>
-                  </select>
-                </div>
+                    <div className="text-center">
+                      <div className="text-lg mb-1">{preset.icon}</div>
+                      <div className="text-xs font-semibold">{preset.name}</div>
+                    </div>
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* Chord Pad */}
-            <div className="bg-gray-700 rounded p-4">
-              <h3 className="text-lg font-semibold mb-4 flex items-center">
-                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
-                </svg>
-                Nashville Chords
-              </h3>
-              
-              <div className="grid grid-cols-2 gap-3">
+            {/* Key Selection */}
+            <div className="w-32">
+              <h3 className="text-sm font-semibold text-gray-300 mb-3">Key</h3>
+              <div className="grid grid-cols-2 gap-2">
+                {['C', 'G', 'D', 'A', 'E', 'F'].map(key => (
+                  <button
+                    key={key}
+                    onClick={() => setCurrentKey(key)}
+                    className={`p-3 rounded-lg border-2 font-mono text-lg font-bold transition-all duration-300 ${
+                      currentKey === key
+                        ? 'border-blue-400 bg-blue-400/20 text-blue-300'
+                        : 'border-gray-600 bg-gray-700 hover:border-gray-500'
+                    }`}
+                  >
+                    {key}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Nashville Chords */}
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold text-gray-300 mb-3">Nashville Chords</h3>
+              <div className="grid grid-cols-4 gap-2">
                 {Object.entries(chordMappings[currentKey]).map(([num, chord]) => (
                   <button
                     key={num}
@@ -433,44 +624,121 @@ const SimpleDAWInterface = () => {
               </div>
             </div>
 
-            {/* Recording Controls */}
-            <div className="bg-gray-700 rounded p-4">
-              <h3 className="text-lg font-semibold mb-4 flex items-center">
-                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3.16-2.54 5.7-5.7 5.7S6 14.16 6 11H4c0 4.42 3.58 8 8 8s8-3.58 8-8h-2.7z"/>
-                </svg>
-                Recording
-              </h3>
-              
+            {/* ADSR Controls */}
+            <div className="w-48">
+              <h3 className="text-sm font-semibold text-gray-300 mb-3">ADSR</h3>
               <div className="space-y-3">
-                <div className="flex gap-2">
-                  <button
-                    onClick={startRecording}
-                    disabled={isRecording}
-                    className={`flex-1 py-2 rounded font-semibold transition-all duration-300 ${
-                      isRecording
-                        ? 'bg-gray-500 text-gray-300 cursor-not-allowed'
-                        : 'bg-red-500 text-white hover:bg-red-600'
-                    }`}
-                  >
-                    {isRecording ? 'Recording...' : 'Record'}
-                  </button>
-                  <button
-                    onClick={stopRecording}
-                    disabled={!isRecording}
-                    className={`flex-1 py-2 rounded font-semibold transition-all duration-300 ${
-                      !isRecording
-                        ? 'bg-gray-500 text-gray-300 cursor-not-allowed'
-                        : 'bg-orange-500 text-white hover:bg-orange-600'
-                    }`}
-                  >
-                    Stop
-                  </button>
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">Attack</label>
+                  <input 
+                    type="range" 
+                    min="0" 
+                    max="2" 
+                    step="0.01" 
+                    value={adsr.attack}
+                    onChange={(e) => setAdsr(prev => ({ ...prev, attack: parseFloat(e.target.value) }))}
+                    className="w-full"
+                  />
                 </div>
-                
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">Decay</label>
+                  <input 
+                    type="range" 
+                    min="0" 
+                    max="2" 
+                    step="0.01" 
+                    value={adsr.decay}
+                    onChange={(e) => setAdsr(prev => ({ ...prev, decay: parseFloat(e.target.value) }))}
+                    className="w-full"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">Sustain</label>
+                  <input 
+                    type="range" 
+                    min="0" 
+                    max="1" 
+                    step="0.01" 
+                    value={adsr.sustain}
+                    onChange={(e) => setAdsr(prev => ({ ...prev, sustain: parseFloat(e.target.value) }))}
+                    className="w-full"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">Release</label>
+                  <input 
+                    type="range" 
+                    min="0" 
+                    max="5" 
+                    step="0.01" 
+                    value={adsr.release}
+                    onChange={(e) => setAdsr(prev => ({ ...prev, release: parseFloat(e.target.value) }))}
+                    className="w-full"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Effects */}
+            <div className="w-48">
+              <h3 className="text-sm font-semibold text-gray-300 mb-3">Effects</h3>
+              <div className="space-y-2">
+                {Object.entries(effects).map(([effect, enabled]) => (
+                  <button
+                    key={effect}
+                    onClick={() => setEffects(prev => ({ ...prev, [effect]: !enabled }))}
+                    className={`w-full py-2 px-3 rounded text-xs font-semibold transition-all duration-300 ${
+                      enabled ? 'bg-blue-600 text-white' : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
+                    }`}
+                  >
+                    {effect.charAt(0).toUpperCase() + effect.slice(1)}
+                  </button>
+                ))}
+              </div>
+              
+              <div className="mt-4">
+                <label className="text-xs text-gray-400 block mb-1">Filter Cutoff</label>
+                <input 
+                  type="range" 
+                  min="100" 
+                  max="4000" 
+                  step="10" 
+                  value={filterCutoff}
+                  onChange={(e) => setFilterCutoff(parseInt(e.target.value))}
+                  className="w-full"
+                />
+              </div>
+            </div>
+
+            {/* Recording */}
+            <div className="w-32">
+              <h3 className="text-sm font-semibold text-gray-300 mb-3">Recording</h3>
+              <div className="space-y-2">
+                <button
+                  onClick={startRecording}
+                  disabled={isRecording}
+                  className={`w-full py-2 rounded text-xs font-semibold transition-all duration-300 ${
+                    isRecording
+                      ? 'bg-gray-500 text-gray-300 cursor-not-allowed'
+                      : 'bg-red-500 text-white hover:bg-red-600'
+                  }`}
+                >
+                  {isRecording ? 'Recording...' : 'Record'}
+                </button>
+                <button
+                  onClick={stopRecording}
+                  disabled={!isRecording}
+                  className={`w-full py-2 rounded text-xs font-semibold transition-all duration-300 ${
+                    !isRecording
+                      ? 'bg-gray-500 text-gray-300 cursor-not-allowed'
+                      : 'bg-orange-500 text-white hover:bg-orange-600'
+                  }`}
+                >
+                  Stop
+                </button>
                 {isRecording && (
-                  <div className="text-center text-sm text-gray-400">
-                    Recording... {recordingTime}s
+                  <div className="text-center text-xs text-gray-400">
+                    {recordingTime}s
                   </div>
                 )}
               </div>
