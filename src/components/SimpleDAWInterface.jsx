@@ -193,27 +193,9 @@ const SimpleDAWInterface = () => {
 
   // Initialize everything
   useEffect(() => {
-    const initSynth = async () => {
-      try {
-        // Start Tone.js context
-        await Tone.start()
-        console.log('Tone.js context started')
-
-        const newSynth = new Tone.PolySynth(Tone.Synth, {
-          oscillator: { type: 'sine' },
-          envelope: { attack: 0.1, decay: 0.2, sustain: 0.7, release: 1.2 }
-        }).toDestination()
-
-        setSynth(newSynth)
-        setIsInitialized(true)
-        console.log('Synth initialized successfully')
-      } catch (error) {
-        console.error('Failed to initialize synth:', error)
-        setIsInitialized(true) // Still show the interface even if audio fails
-      }
-    }
-
-    initSynth()
+    // Just set initialized to true immediately
+    setIsInitialized(true)
+    console.log('Interface loaded')
   }, [])
 
   // Handle instrument change
@@ -443,10 +425,20 @@ const SimpleDAWInterface = () => {
           <div className="text-sm font-semibold">Untitled Project</div>
           <button 
             onClick={async () => {
-              await Tone.start()
-              if (synth) {
-                synth.triggerAttackRelease('C4', '8n')
+              try {
+                await Tone.start()
+                console.log('Tone.js context started')
+                
+                const newSynth = new Tone.PolySynth(Tone.Synth, {
+                  oscillator: { type: 'sine' },
+                  envelope: { attack: 0.1, decay: 0.2, sustain: 0.7, release: 1.2 }
+                }).toDestination()
+                
+                setSynth(newSynth)
+                newSynth.triggerAttackRelease('C4', '8n')
                 console.log('Test note played')
+              } catch (error) {
+                console.error('Audio initialization failed:', error)
               }
             }}
             className="px-3 py-1 bg-green-600 rounded text-sm hover:bg-green-700"
