@@ -194,6 +194,10 @@ const SimpleDAWInterface = () => {
   // Initialize everything
   useEffect(() => {
     const initSynth = async () => {
+      // Start Tone.js context
+      await Tone.start()
+      console.log('Tone.js context started')
+
       const newSynth = new Tone.PolySynth(Tone.Synth, {
         oscillator: { type: 'sine' },
         envelope: { attack: 0.1, decay: 0.2, sustain: 0.7, release: 1.2 }
@@ -213,6 +217,7 @@ const SimpleDAWInterface = () => {
       
       setSynth(newSynth)
       setIsInitialized(true)
+      console.log('Synth initialized successfully')
     }
 
     initSynth()
@@ -262,11 +267,17 @@ const SimpleDAWInterface = () => {
   }
 
   // Chord functions
-  const triggerChord = (chordNumber) => {
+  const triggerChord = async (chordNumber) => {
     if (!synth) return
+    
+    // Ensure audio context is started
+    if (Tone.context.state !== 'running') {
+      await Tone.start()
+    }
     
     const chord = chordMappings[currentKey][chordNumber]
     if (chord) {
+      console.log('Playing chord:', chordNumber, chord.notes)
       chord.notes.forEach(note => {
         synth.triggerAttack(note)
       })
@@ -442,6 +453,18 @@ const SimpleDAWInterface = () => {
         <div className="flex items-center gap-4">
           <div className="text-sm text-green-400">Ready</div>
           <div className="text-sm font-semibold">Untitled Project</div>
+          <button 
+            onClick={async () => {
+              await Tone.start()
+              if (synth) {
+                synth.triggerAttackRelease('C4', '8n')
+                console.log('Test note played')
+              }
+            }}
+            className="px-3 py-1 bg-green-600 rounded text-sm hover:bg-green-700"
+          >
+            Test Audio
+          </button>
         </div>
         
         <div className="flex items-center gap-3">
