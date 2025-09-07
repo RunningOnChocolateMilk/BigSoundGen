@@ -54,6 +54,7 @@ const ChordMasterInterface = () => {
   // Web Audio API recording for unlimited length
   const [mediaRecorder, setMediaRecorder] = useState(null)
   const [audioChunks, setAudioChunks] = useState([])
+  const [recordingNodes, setRecordingNodes] = useState(null)
 
   // Instrument presets with realistic and unique sounds
   const instrumentPresets = {
@@ -533,63 +534,68 @@ const ChordMasterInterface = () => {
     setMetronomeEnabled(!metronomeEnabled)
   }
 
-  // Recording functions using Web Audio API for unlimited length
+  // Recording functions using Web Audio API for professional WAV export
   const startRecording = async () => {
     try {
       // Get the audio context from Tone.js
       const audioContext = Tone.context
       
-      // Create a MediaStreamDestination
-      const destination = audioContext.createMediaStreamDestination()
+      // Create a ScriptProcessorNode for recording (works for unlimited length)
+      const bufferSize = 4096
+      const recorder = audioContext.createScriptProcessor(bufferSize, 2, 2)
       
-      // Connect synth to the destination
-      synth.connect(destination)
+      // Create buffers to store audio data
+      const leftChannel = []
+      const rightChannel = []
       
-      // Create MediaRecorder for unlimited recording
-      const recorder = new MediaRecorder(destination.stream, {
-        mimeType: 'audio/webm;codecs=opus'
-      })
-      
-      const chunks = []
-      
-      recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          chunks.push(event.data)
-        }
+      recorder.onaudioprocess = (event) => {
+        // Get audio data from input
+        const leftInput = event.inputBuffer.getChannelData(0)
+        const rightInput = event.inputBuffer.getChannelData(1)
+        
+        // Store the audio data
+        leftChannel.push(new Float32Array(leftInput))
+        rightChannel.push(new Float32Array(rightInput))
       }
       
-      recorder.onstop = () => {
-        const blob = new Blob(chunks, { type: 'audio/webm' })
-        setRecordedAudio(blob)
-        setIsRecording(false)
-        console.log('Recording complete - unlimited length:', blob.size, 'bytes')
-      }
+      // Connect synth to recorder
+      synth.connect(recorder)
+      recorder.connect(audioContext.destination)
       
-      // Start recording
-      recorder.start(1000) // Collect data every second
-      setMediaRecorder(recorder)
-      setAudioChunks(chunks)
+      // Store recording data
+      setRecordingNodes({ recorder, leftChannel, rightChannel })
       setIsRecording(true)
       setRecordingTime(0)
       setRecordedAudio(null)
       
-      console.log('Recording started - Web Audio API unlimited length')
+      console.log('Recording started - Professional WAV unlimited length')
     } catch (error) {
       console.error('Failed to start recording:', error)
     }
   }
 
   const stopRecording = async () => {
-    if (!mediaRecorder || !isRecording) return
+    if (!recordingNodes || !isRecording) return
     
     try {
       console.log('Stopping recording...')
-      mediaRecorder.stop()
       
-      // Disconnect synth
-      synth.disconnect()
+      const { recorder, leftChannel, rightChannel } = recordingNodes
       
-      console.log('Recording stopped - processing unlimited length audio')
+      // Disconnect the recorder
+      synth.disconnect(recorder)
+      recorder.disconnect()
+      
+      // Calculate total length
+      const length = leftChannel[0].length * leftChannel.length
+      const sampleRate = Tone.context.sampleRate
+      
+      // Create WAV file
+      const wavBlob = createWAVFile(leftChannel, rightChannel, sampleRate)
+      setRecordedAudio(wavBlob)
+      setIsRecording(false)
+      
+      console.log('Recording stopped - Professional WAV created:', wavBlob.size, 'bytes')
     } catch (error) {
       console.error('Failed to stop recording:', error)
       setIsRecording(false)
@@ -599,40 +605,87 @@ const ChordMasterInterface = () => {
   const exportAsWAV = () => {
     if (!recordedAudio) return
     
-    console.log('Exporting WAV file...')
+    console.log('Exporting professional WAV file...')
     const url = URL.createObjectURL(recordedAudio)
     const link = document.createElement('a')
     link.href = url
-    link.download = `chordmaster-masterpiece-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.webm`
+    link.download = `chordmaster-masterpiece-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.wav`
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
-    console.log('WAV export complete')
+    console.log('Professional WAV export complete')
   }
 
   const exportAsMP3 = async () => {
     if (!recordedAudio) return
     
     try {
-      console.log('Exporting MP3 file...')
+      console.log('Exporting WAV file (same as WAV export)...')
       
-      // For WebM format, we'll export as WebM since it's already compressed
+      // For now, export as WAV since we're not doing WebM
       const url = URL.createObjectURL(recordedAudio)
       const link = document.createElement('a')
       link.href = url
-      link.download = `chordmaster-masterpiece-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.webm`
+      link.download = `chordmaster-masterpiece-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.wav`
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
       URL.revokeObjectURL(url)
       
-      console.log('MP3 export complete (as WebM)')
+      console.log('WAV export complete')
     } catch (error) {
-      console.error('Failed to export as MP3:', error)
-      // Fallback to WAV if MP3 fails
+      console.error('Failed to export audio:', error)
+      // Fallback to WAV if export fails
       exportAsWAV()
     }
+  }
+
+
+  // Create WAV file from audio buffers
+  const createWAVFile = (leftChannel, rightChannel, sampleRate) => {
+    const length = leftChannel[0].length * leftChannel.length
+    const arrayBuffer = new ArrayBuffer(44 + length * 2 * 2) // 44 bytes header + stereo 16-bit
+    const view = new DataView(arrayBuffer)
+    
+    // WAV header
+    const writeString = (offset, string) => {
+      for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i))
+      }
+    }
+    
+    writeString(0, 'RIFF')
+    view.setUint32(4, 36 + length * 2 * 2, true)
+    writeString(8, 'WAVE')
+    writeString(12, 'fmt ')
+    view.setUint32(16, 16, true)
+    view.setUint16(20, 1, true) // PCM format
+    view.setUint16(22, 2, true) // Stereo
+    view.setUint32(24, sampleRate, true)
+    view.setUint32(28, sampleRate * 2 * 2, true)
+    view.setUint16(32, 2 * 2, true)
+    view.setUint16(34, 16, true) // 16-bit
+    writeString(36, 'data')
+    view.setUint32(40, length * 2 * 2, true)
+    
+    // Convert float32 to int16 and write audio data
+    let offset = 44
+    for (let i = 0; i < leftChannel.length; i++) {
+      for (let j = 0; j < leftChannel[i].length; j++) {
+        // Left channel
+        const leftSample = Math.max(-1, Math.min(1, leftChannel[i][j]))
+        view.setInt16(offset, leftSample * 0x7FFF, true)
+        offset += 2
+        
+        // Right channel
+        const rightSample = Math.max(-1, Math.min(1, rightChannel[i][j]))
+        view.setInt16(offset, rightSample * 0x7FFF, true)
+        offset += 2
+      }
+    }
+    
+    return new Blob([arrayBuffer], { type: 'audio/wav' })
   }
 
   // Recording timer
@@ -1168,13 +1221,13 @@ const ChordMasterInterface = () => {
                         onClick={exportAsWAV}
                         className="p-2 rounded-lg border border-orange-600/50 bg-orange-900/20 hover:bg-orange-800/30 text-orange-200 text-sm transition-all duration-300"
                       >
-                        📁 WebM (Unlimited Length)
+                        📁 WAV (Professional)
                       </button>
                       <button
                         onClick={exportAsMP3}
                         className="p-2 rounded-lg border border-orange-600/50 bg-orange-900/20 hover:bg-orange-800/30 text-orange-200 text-sm transition-all duration-300"
                       >
-                        🎵 WebM (Compressed)
+                        🎵 WAV (Lossless)
                       </button>
                     </div>
                   </div>
