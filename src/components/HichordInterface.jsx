@@ -242,6 +242,9 @@ const ChordMasterInterface = () => {
   useEffect(() => {
     const initSynth = async () => {
       try {
+        // Initialize Tone.js
+        await Tone.start()
+        console.log('Tone.js initialized')
         // Create a more realistic synthesizer
         const newSynth = new Tone.PolySynth(Tone.Synth, {
           oscillator: { 
@@ -324,7 +327,7 @@ const ChordMasterInterface = () => {
           sidechainLFO
         }
 
-        // Connect the audio chain
+        // Connect the audio chain properly - series connection
         newSynth.connect(filter)
         filter.connect(eq)
         eq.connect(sidechain)
@@ -332,8 +335,7 @@ const ChordMasterInterface = () => {
         sidechainDuck.connect(tremolo)
         tremolo.connect(flanger)
         flanger.connect(reverb)
-        flanger.connect(delay)
-        reverb.toDestination()
+        reverb.connect(delay)
         delay.toDestination()
 
         // Store effects chain with synth
@@ -378,8 +380,13 @@ const ChordMasterInterface = () => {
   }, [isInitialized, metronomePattern, metronomeAccent])
 
   // Handle chord trigger (polyphonic - can play multiple chords)
-  const triggerChord = (chordNumber) => {
+  const triggerChord = async (chordNumber) => {
     if (!synth || !isInitialized) return
+    
+    // Ensure audio context is started
+    if (Tone.context.state !== 'running') {
+      await Tone.start()
+    }
     
     const chordData = chordMappings[currentKey][chordNumber]
     if (!chordData) return
@@ -786,8 +793,16 @@ const ChordMasterInterface = () => {
     }
   }, [synth, isInitialized])
 
+  // Handle initial user interaction to start audio context
+  const handleUserInteraction = async () => {
+    if (Tone.context.state !== 'running') {
+      await Tone.start()
+      console.log('Audio context started by user interaction')
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white">
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white" onClick={handleUserInteraction}>
       {/* Header */}
       <header className="bg-gradient-to-r from-purple-800 to-blue-800 border-b border-purple-600 p-6">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
