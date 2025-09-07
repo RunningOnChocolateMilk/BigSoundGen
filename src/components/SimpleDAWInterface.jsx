@@ -194,30 +194,23 @@ const SimpleDAWInterface = () => {
   // Initialize everything
   useEffect(() => {
     const initSynth = async () => {
-      // Start Tone.js context
-      await Tone.start()
-      console.log('Tone.js context started')
+      try {
+        // Start Tone.js context
+        await Tone.start()
+        console.log('Tone.js context started')
 
-      const newSynth = new Tone.PolySynth(Tone.Synth, {
-        oscillator: { type: 'sine' },
-        envelope: { attack: 0.1, decay: 0.2, sustain: 0.7, release: 1.2 }
-      }).toDestination()
+        const newSynth = new Tone.PolySynth(Tone.Synth, {
+          oscillator: { type: 'sine' },
+          envelope: { attack: 0.1, decay: 0.2, sustain: 0.7, release: 1.2 }
+        }).toDestination()
 
-      // Add effects chain
-      const reverb = new Tone.Reverb(0.3).toDestination()
-      const delay = new Tone.PingPongDelay('8n', 0.1).toDestination()
-      const filter = new Tone.Filter(2000, 'lowpass').toDestination()
-      const eq = new Tone.EQ3(-10, 0, 10).toDestination()
-      const compressor = new Tone.Compressor(-30, 3).toDestination()
-
-      newSynth.chain(filter, eq, compressor, delay, reverb)
-      
-      // Store effects chain for later use
-      newSynth.effectsChain = { reverb, delay, filter, eq, compressor }
-      
-      setSynth(newSynth)
-      setIsInitialized(true)
-      console.log('Synth initialized successfully')
+        setSynth(newSynth)
+        setIsInitialized(true)
+        console.log('Synth initialized successfully')
+      } catch (error) {
+        console.error('Failed to initialize synth:', error)
+        setIsInitialized(true) // Still show the interface even if audio fails
+      }
     }
 
     initSynth()
@@ -267,13 +260,8 @@ const SimpleDAWInterface = () => {
   }
 
   // Chord functions
-  const triggerChord = async (chordNumber) => {
+  const triggerChord = (chordNumber) => {
     if (!synth) return
-    
-    // Ensure audio context is started
-    if (Tone.context.state !== 'running') {
-      await Tone.start()
-    }
     
     const chord = chordMappings[currentKey][chordNumber]
     if (chord) {
