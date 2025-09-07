@@ -10,11 +10,33 @@ const ChordMasterInterface = () => {
   const [chordModification, setChordModification] = useState('major')
   const [metronomeEnabled, setMetronomeEnabled] = useState(false)
   const [metronomeBPM, setMetronomeBPM] = useState(120)
+  const [metronomePattern, setMetronomePattern] = useState('4/4')
+  const [metronomeAccent, setMetronomeAccent] = useState(true)
+  const [metronomeBeat, setMetronomeBeat] = useState(0)
   const [effects, setEffects] = useState({
     reverb: false,
     delay: false,
     tremolo: false,
-    flanger: false
+    flanger: false,
+    sidechain: false,
+    eq: false
+  })
+  
+  // EQ settings
+  const [eqSettings, setEqSettings] = useState({
+    low: 0,      // 80Hz
+    lowMid: 0,   // 500Hz
+    mid: 0,      // 1.5kHz
+    highMid: 0,  // 5kHz
+    high: 0      // 12kHz
+  })
+  
+  // Sidechain settings
+  const [sidechainSettings, setSidechainSettings] = useState({
+    threshold: -20,
+    ratio: 4,
+    attack: 0.01,
+    release: 0.1
   })
   const [displayMode, setDisplayMode] = useState('chord') // chord, progression, settings
 
@@ -29,7 +51,7 @@ const ChordMasterInterface = () => {
   const [recordedAudio, setRecordedAudio] = useState(null)
   const [recordingTime, setRecordingTime] = useState(0)
 
-  // Instrument presets with realistic sounds
+  // Instrument presets with realistic and unique sounds
   const instrumentPresets = {
     piano: {
       name: 'Piano',
@@ -90,6 +112,66 @@ const ChordMasterInterface = () => {
       effects: { reverb: true, delay: false },
       detune: 0,
       volume: -5
+    },
+    strings: {
+      name: 'Strings',
+      icon: '🎻',
+      waveform: 'triangle',
+      adsr: { attack: 0.5, decay: 1.0, sustain: 0.8, release: 2.5 },
+      filterCutoff: 2500,
+      effects: { reverb: true, delay: false },
+      detune: 0,
+      volume: -7
+    },
+    brass: {
+      name: 'Brass',
+      icon: '🎺',
+      waveform: 'sawtooth',
+      adsr: { attack: 0.1, decay: 0.4, sustain: 0.7, release: 0.8 },
+      filterCutoff: 1800,
+      effects: { reverb: true, delay: false },
+      detune: 0,
+      volume: -4
+    },
+    choir: {
+      name: 'Choir',
+      icon: '👥',
+      waveform: 'sine',
+      adsr: { attack: 0.3, decay: 0.8, sustain: 0.9, release: 2.0 },
+      filterCutoff: 1200,
+      effects: { reverb: true, delay: true },
+      detune: 0,
+      volume: -6
+    },
+    bell: {
+      name: 'Bell',
+      icon: '🔔',
+      waveform: 'triangle',
+      adsr: { attack: 0.0, decay: 0.1, sustain: 0.1, release: 3.0 },
+      filterCutoff: 4000,
+      effects: { reverb: true, delay: false },
+      detune: 0,
+      volume: -8
+    },
+    pluck: {
+      name: 'Pluck',
+      icon: '🪕',
+      waveform: 'triangle',
+      adsr: { attack: 0.0, decay: 0.05, sustain: 0.0, release: 0.3 },
+      filterCutoff: 2000,
+      effects: { reverb: false, delay: true },
+      detune: 0,
+      volume: -3
+    },
+    ambient: {
+      name: 'Ambient',
+      icon: '🌌',
+      waveform: 'sine',
+      adsr: { attack: 3.0, decay: 2.0, sustain: 0.9, release: 5.0 },
+      filterCutoff: 800,
+      effects: { reverb: true, delay: true },
+      detune: 0,
+      volume: -10
     }
   }
 
@@ -173,7 +255,7 @@ const ChordMasterInterface = () => {
         // Add filter for more realistic sound shaping
         const filter = new Tone.Filter(3000, 'lowpass')
         
-        // Add effects
+        // Add advanced effects
         const reverb = new Tone.Reverb({
           decay: 2,
           wet: 0.3
@@ -185,10 +267,43 @@ const ChordMasterInterface = () => {
           wet: 0.2
         })
 
+        // Add tremolo effect
+        const tremolo = new Tone.Tremolo({
+          frequency: 4,
+          depth: 0.5,
+          wet: 0.3
+        })
+
+        // Add flanger effect
+        const flanger = new Tone.FeedbackDelay({
+          delayTime: '8n',
+          feedback: 0.3,
+          wet: 0.2
+        })
+
+        // Add EQ
+        const eq = new Tone.EQ3({
+          low: 0,
+          mid: 0,
+          high: 0
+        })
+
+        // Add sidechain compressor
+        const sidechain = new Tone.Compressor({
+          threshold: -20,
+          ratio: 4,
+          attack: 0.01,
+          release: 0.1
+        })
+
         // Connect the audio chain
         newSynth.connect(filter)
-        filter.connect(reverb)
-        filter.connect(delay)
+        filter.connect(eq)
+        eq.connect(sidechain)
+        sidechain.connect(tremolo)
+        tremolo.connect(flanger)
+        flanger.connect(reverb)
+        flanger.connect(delay)
         reverb.toDestination()
         delay.toDestination()
 
@@ -206,17 +321,30 @@ const ChordMasterInterface = () => {
     initSynth()
   }, [])
 
-  // Initialize metronome
+  // Initialize metronome with patterns
   useEffect(() => {
     if (isInitialized) {
+      const beatsPerMeasure = parseInt(metronomePattern.split('/')[0])
+      
       const newMetronome = new Tone.Loop((time) => {
-        const osc = new Tone.Oscillator(800, 'sine').toDestination()
-        osc.start(time).stop(time + 0.1)
+        const currentBeat = Math.floor(Tone.Transport.position.split(':')[1]) % beatsPerMeasure
+        setMetronomeBeat(currentBeat)
+        
+        // Different sounds for different beats
+        if (currentBeat === 0 && metronomeAccent) {
+          // Accent on beat 1
+          const osc = new Tone.Oscillator(1000, 'sine').toDestination()
+          osc.start(time).stop(time + 0.15)
+        } else {
+          // Regular beats
+          const osc = new Tone.Oscillator(800, 'sine').toDestination()
+          osc.start(time).stop(time + 0.1)
+        }
       }, '4n')
       
       setMetronome(newMetronome)
     }
-  }, [isInitialized])
+  }, [isInitialized, metronomePattern, metronomeAccent])
 
   // Handle chord trigger (polyphonic - can play multiple chords)
   const triggerChord = (chordNumber) => {
@@ -598,6 +726,35 @@ const ChordMasterInterface = () => {
                 <span className="text-2xl mr-3">⏱️</span>
                 Rhythm Engine
               </h2>
+              
+              {/* Visual Metronome */}
+              <div className="mb-6">
+                <div className="flex justify-center space-x-2 mb-4">
+                  {[1, 2, 3, 4].map((beat) => (
+                    <div
+                      key={beat}
+                      className={`w-8 h-8 rounded-full border-2 transition-all duration-200 ${
+                        metronomeEnabled && metronomeBeat === beat - 1
+                          ? 'bg-green-400 border-green-300 scale-125'
+                          : beat === 1
+                          ? 'border-green-400 bg-green-400/20'
+                          : 'border-green-600 bg-green-900/20'
+                      }`}
+                    >
+                      <div className="flex items-center justify-center h-full text-xs font-bold">
+                        {beat === 1 ? '●' : '○'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                {metronomeEnabled && (
+                  <div className="text-center text-green-300 font-mono text-lg">
+                    Beat {metronomeBeat + 1} of {metronomePattern}
+                  </div>
+                )}
+              </div>
+              
               <div className="space-y-6">
                 <button
                   onClick={toggleMetronome}
@@ -610,19 +767,54 @@ const ChordMasterInterface = () => {
                   {metronomeEnabled ? '⏸️ Stop Beat' : '▶️ Start Beat'}
                 </button>
                 
-                <div className="space-y-3">
-                  <label className="text-sm text-green-200 font-medium">Tempo: {metronomeBPM} BPM</label>
-                  <input
-                    type="range"
-                    min="60"
-                    max="200"
-                    value={metronomeBPM}
-                    onChange={(e) => setMetronomeBPM(parseInt(e.target.value))}
-                    className="w-full h-2 bg-green-900/50 rounded-lg appearance-none cursor-pointer slider"
-                  />
-                  <div className="flex justify-between text-xs text-green-300">
-                    <span>60</span>
-                    <span>200</span>
+                <div className="space-y-4">
+                  <div className="space-y-3">
+                    <label className="text-sm text-green-200 font-medium">Tempo: {metronomeBPM} BPM</label>
+                    <input
+                      type="range"
+                      min="60"
+                      max="200"
+                      value={metronomeBPM}
+                      onChange={(e) => setMetronomeBPM(parseInt(e.target.value))}
+                      className="w-full h-2 bg-green-900/50 rounded-lg appearance-none cursor-pointer slider"
+                    />
+                    <div className="flex justify-between text-xs text-green-300">
+                      <span>60</span>
+                      <span>200</span>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-sm text-green-200 font-medium">Time Signature</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {['4/4', '3/4', '2/4', '6/8'].map(pattern => (
+                        <button
+                          key={pattern}
+                          onClick={() => setMetronomePattern(pattern)}
+                          className={`p-2 rounded-lg border text-sm transition-all ${
+                            metronomePattern === pattern
+                              ? 'border-green-400 bg-green-400/20 text-green-300'
+                              : 'border-green-600/50 bg-green-900/20 hover:border-green-500'
+                          }`}
+                        >
+                          {pattern}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-green-200">Accent Beat 1</span>
+                    <button
+                      onClick={() => setMetronomeAccent(!metronomeAccent)}
+                      className={`w-12 h-6 rounded-full transition-all ${
+                        metronomeAccent ? 'bg-green-400' : 'bg-gray-600'
+                      }`}
+                    >
+                      <div className={`w-5 h-5 bg-white rounded-full transition-transform ${
+                        metronomeAccent ? 'translate-x-6' : 'translate-x-1'
+                      }`}></div>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -718,7 +910,9 @@ const ChordMasterInterface = () => {
                 <span className="text-2xl mr-3">✨</span>
                 Sound Effects
               </h2>
-              <div className="space-y-4">
+              
+              {/* Basic Effects */}
+              <div className="space-y-4 mb-6">
                 {Object.entries(effects).map(([effect, enabled]) => (
                   <div key={effect} className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
                     <span className="text-sm capitalize text-pink-200 font-medium">{effect}</span>
@@ -735,6 +929,68 @@ const ChordMasterInterface = () => {
                   </div>
                 ))}
               </div>
+
+              {/* EQ Controls */}
+              {effects.eq && (
+                <div className="mb-6 p-4 bg-white/5 rounded-xl">
+                  <h3 className="text-pink-200 font-semibold mb-3">EQ</h3>
+                  <div className="space-y-3">
+                    {Object.entries(eqSettings).map(([band, value]) => (
+                      <div key={band} className="space-y-1">
+                        <div className="flex justify-between text-xs text-pink-300">
+                          <span>{band}</span>
+                          <span>{value}dB</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="-12"
+                          max="12"
+                          value={value}
+                          onChange={(e) => setEqSettings(prev => ({ ...prev, [band]: parseInt(e.target.value) }))}
+                          className="w-full h-1 bg-pink-900/50 rounded-lg appearance-none cursor-pointer"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Sidechain Controls */}
+              {effects.sidechain && (
+                <div className="p-4 bg-white/5 rounded-xl">
+                  <h3 className="text-pink-200 font-semibold mb-3">Sidechain</h3>
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs text-pink-300">
+                        <span>Threshold</span>
+                        <span>{sidechainSettings.threshold}dB</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="-40"
+                        max="0"
+                        value={sidechainSettings.threshold}
+                        onChange={(e) => setSidechainSettings(prev => ({ ...prev, threshold: parseInt(e.target.value) }))}
+                        className="w-full h-1 bg-pink-900/50 rounded-lg appearance-none cursor-pointer"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs text-pink-300">
+                        <span>Ratio</span>
+                        <span>{sidechainSettings.ratio}:1</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="1"
+                        max="20"
+                        value={sidechainSettings.ratio}
+                        onChange={(e) => setSidechainSettings(prev => ({ ...prev, ratio: parseInt(e.target.value) }))}
+                        className="w-full h-1 bg-pink-900/50 rounded-lg appearance-none cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Recording Studio */}
