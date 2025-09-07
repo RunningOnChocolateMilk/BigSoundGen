@@ -50,6 +50,10 @@ const ChordMasterInterface = () => {
   const [recorder, setRecorder] = useState(null)
   const [recordedAudio, setRecordedAudio] = useState(null)
   const [recordingTime, setRecordingTime] = useState(0)
+  
+  // Web Audio API recording for unlimited length
+  const [mediaRecorder, setMediaRecorder] = useState(null)
+  const [audioChunks, setAudioChunks] = useState([])
 
   // Instrument presets with realistic and unique sounds
   const instrumentPresets = {
@@ -288,7 +292,7 @@ const ChordMasterInterface = () => {
           high: 0
         })
 
-        // Add sidechain compressor
+        // Add sidechain compressor with ducking effect
         const sidechain = new Tone.Compressor({
           threshold: -20,
           ratio: 4,
@@ -296,17 +300,43 @@ const ChordMasterInterface = () => {
           release: 0.1
         })
 
+        // Add sidechain ducking effect
+        const sidechainDuck = new Tone.Gain(1)
+        const sidechainLFO = new Tone.LFO({
+          frequency: 1,
+          type: 'sine',
+          min: 0.3,
+          max: 1
+        })
+        sidechainLFO.connect(sidechainDuck.gain)
+
+        // Store effects for later control
+        const effectsChain = {
+          filter,
+          reverb,
+          delay,
+          tremolo,
+          flanger,
+          eq,
+          sidechain,
+          sidechainDuck,
+          sidechainLFO
+        }
+
         // Connect the audio chain
         newSynth.connect(filter)
         filter.connect(eq)
         eq.connect(sidechain)
-        sidechain.connect(tremolo)
+        sidechain.connect(sidechainDuck)
+        sidechainDuck.connect(tremolo)
         tremolo.connect(flanger)
         flanger.connect(reverb)
         flanger.connect(delay)
         reverb.toDestination()
         delay.toDestination()
 
+        // Store effects chain with synth
+        newSynth.effectsChain = effectsChain
         setSynth(newSynth)
         setIsInitialized(true)
         
@@ -503,74 +533,101 @@ const ChordMasterInterface = () => {
     setMetronomeEnabled(!metronomeEnabled)
   }
 
-  // Recording functions
+  // Recording functions using Web Audio API for unlimited length
   const startRecording = async () => {
-    if (!recorder || !synth) return
-    
     try {
-      // Connect synth to recorder
-      synth.connect(recorder)
+      // Get the audio context from Tone.js
+      const audioContext = Tone.context
+      
+      // Create a MediaStreamDestination
+      const destination = audioContext.createMediaStreamDestination()
+      
+      // Connect synth to the destination
+      synth.connect(destination)
+      
+      // Create MediaRecorder for unlimited recording
+      const recorder = new MediaRecorder(destination.stream, {
+        mimeType: 'audio/webm;codecs=opus'
+      })
+      
+      const chunks = []
+      
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          chunks.push(event.data)
+        }
+      }
+      
+      recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: 'audio/webm' })
+        setRecordedAudio(blob)
+        setIsRecording(false)
+        console.log('Recording complete - unlimited length:', blob.size, 'bytes')
+      }
       
       // Start recording
-      recorder.start()
+      recorder.start(1000) // Collect data every second
+      setMediaRecorder(recorder)
+      setAudioChunks(chunks)
       setIsRecording(true)
       setRecordingTime(0)
       setRecordedAudio(null)
       
-      console.log('Recording started')
+      console.log('Recording started - Web Audio API unlimited length')
     } catch (error) {
       console.error('Failed to start recording:', error)
     }
   }
 
   const stopRecording = async () => {
-    if (!recorder || !isRecording) return
+    if (!mediaRecorder || !isRecording) return
     
     try {
-      // Stop recording and get the audio
-      const recording = await recorder.stop()
-      setRecordedAudio(recording)
-      setIsRecording(false)
+      console.log('Stopping recording...')
+      mediaRecorder.stop()
       
-      // Disconnect synth from recorder
-      synth.disconnect(recorder)
+      // Disconnect synth
+      synth.disconnect()
       
-      console.log('Recording stopped')
+      console.log('Recording stopped - processing unlimited length audio')
     } catch (error) {
       console.error('Failed to stop recording:', error)
+      setIsRecording(false)
     }
   }
 
   const exportAsWAV = () => {
     if (!recordedAudio) return
     
+    console.log('Exporting WAV file...')
     const url = URL.createObjectURL(recordedAudio)
     const link = document.createElement('a')
     link.href = url
-    link.download = `chordmaster-recording-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.wav`
+    link.download = `chordmaster-masterpiece-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.webm`
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
+    console.log('WAV export complete')
   }
 
   const exportAsMP3 = async () => {
     if (!recordedAudio) return
     
     try {
-      // Convert to MP3 using a simple approach
-      // Note: This is a basic implementation - for production, you'd want a more robust MP3 encoder
-      const arrayBuffer = await recordedAudio.arrayBuffer()
-      const blob = new Blob([arrayBuffer], { type: 'audio/mpeg' })
+      console.log('Exporting MP3 file...')
       
-      const url = URL.createObjectURL(blob)
+      // For WebM format, we'll export as WebM since it's already compressed
+      const url = URL.createObjectURL(recordedAudio)
       const link = document.createElement('a')
       link.href = url
-      link.download = `chordmaster-recording-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.mp3`
+      link.download = `chordmaster-masterpiece-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.webm`
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
       URL.revokeObjectURL(url)
+      
+      console.log('MP3 export complete (as WebM)')
     } catch (error) {
       console.error('Failed to export as MP3:', error)
       // Fallback to WAV if MP3 fails
@@ -609,6 +666,63 @@ const ChordMasterInterface = () => {
     setCurrentInstrument(instrumentName)
     console.log(`Switched to ${preset.name} instrument`)
   }
+
+  // Update sidechain settings
+  const updateSidechain = () => {
+    if (!synth || !synth.effectsChain) return
+    
+    const { sidechain, sidechainLFO } = synth.effectsChain
+    
+    // Update compressor settings
+    sidechain.set({
+      threshold: sidechainSettings.threshold,
+      ratio: sidechainSettings.ratio,
+      attack: sidechainSettings.attack,
+      release: sidechainSettings.release
+    })
+    
+    // Update LFO frequency based on BPM for sidechain ducking
+    const lfoFreq = metronomeBPM / 60 / 4 // Quarter note sidechain
+    sidechainLFO.set({
+      frequency: lfoFreq,
+      min: 0.2,
+      max: 1
+    })
+  }
+
+  // Update EQ settings
+  const updateEQ = () => {
+    if (!synth || !synth.effectsChain) return
+    
+    const { eq } = synth.effectsChain
+    eq.set({
+      low: eqSettings.low,
+      mid: eqSettings.mid,
+      high: eqSettings.high
+    })
+  }
+
+  // Update effects when settings change
+  useEffect(() => {
+    if (effects.sidechain) {
+      updateSidechain()
+      // Start sidechain LFO
+      if (synth && synth.effectsChain) {
+        synth.effectsChain.sidechainLFO.start()
+      }
+    } else {
+      // Stop sidechain LFO
+      if (synth && synth.effectsChain) {
+        synth.effectsChain.sidechainLFO.stop()
+      }
+    }
+  }, [sidechainSettings, effects.sidechain, metronomeBPM])
+
+  useEffect(() => {
+    if (effects.eq) {
+      updateEQ()
+    }
+  }, [eqSettings, effects.eq])
 
   // Handle key change
   const changeKey = (newKey) => {
@@ -1041,20 +1155,26 @@ const ChordMasterInterface = () => {
                 {recordedAudio && (
                   <div className="space-y-2">
                     <div className="text-orange-200 text-sm text-center mb-3">
-                      Recording Complete! Export as:
+                      🎵 Masterpiece Complete! 🎵
+                    </div>
+                    <div className="text-orange-300 text-xs text-center mb-3">
+                      File size: {(recordedAudio.size / 1024 / 1024).toFixed(2)} MB
+                    </div>
+                    <div className="text-orange-200 text-sm text-center mb-3">
+                      Export your masterpiece as:
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         onClick={exportAsWAV}
                         className="p-2 rounded-lg border border-orange-600/50 bg-orange-900/20 hover:bg-orange-800/30 text-orange-200 text-sm transition-all duration-300"
                       >
-                        📁 WAV
+                        📁 WebM (Unlimited Length)
                       </button>
                       <button
                         onClick={exportAsMP3}
                         className="p-2 rounded-lg border border-orange-600/50 bg-orange-900/20 hover:bg-orange-800/30 text-orange-200 text-sm transition-all duration-300"
                       >
-                        🎵 MP3
+                        🎵 WebM (Compressed)
                       </button>
                     </div>
                   </div>
