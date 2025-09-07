@@ -327,16 +327,19 @@ const ChordMasterInterface = () => {
           sidechainLFO
         }
 
-        // Connect the audio chain properly - series connection
-        newSynth.connect(filter)
-        filter.connect(eq)
-        eq.connect(sidechain)
-        sidechain.connect(sidechainDuck)
-        sidechainDuck.connect(tremolo)
-        tremolo.connect(flanger)
-        flanger.connect(reverb)
-        reverb.connect(delay)
-        delay.toDestination()
+        // Connect synth directly to destination for basic audio
+        newSynth.toDestination()
+        
+        // Store effects for optional use
+        // newSynth.connect(filter)
+        // filter.connect(eq)
+        // eq.connect(sidechain)
+        // sidechain.connect(sidechainDuck)
+        // sidechainDuck.connect(tremolo)
+        // tremolo.connect(flanger)
+        // flanger.connect(reverb)
+        // reverb.connect(delay)
+        // delay.toDestination()
 
         // Store effects chain with synth
         newSynth.effectsChain = effectsChain
@@ -395,12 +398,15 @@ const ChordMasterInterface = () => {
     if (activeChords.has(chordNumber)) return
 
     console.log('Triggering chord:', chordNumber, chordData.notes)
+    console.log('Synth state:', synth)
+    console.log('Audio context state:', Tone.context.state)
     
     // Add chord to active chords
     setActiveChords(prev => new Set([...prev, chordNumber]))
     
     // Trigger each note in the chord
     chordData.notes.forEach(note => {
+      console.log('Playing note:', note)
       synth.triggerAttack(note)
       setActiveNotes(prev => new Set([...prev, note]))
     })
@@ -801,6 +807,18 @@ const ChordMasterInterface = () => {
     }
   }
 
+  // Test audio function
+  const testAudio = async () => {
+    if (Tone.context.state !== 'running') {
+      await Tone.start()
+    }
+    
+    // Create a simple test oscillator
+    const testOsc = new Tone.Oscillator(440, 'sine').toDestination()
+    testOsc.start().stop('+0.5')
+    console.log('Test audio played')
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white" onClick={handleUserInteraction}>
       {/* Header */}
@@ -823,12 +841,20 @@ const ChordMasterInterface = () => {
             
             {/* Emergency Stop Button */}
             {isInitialized && (
-              <button
-                onClick={stopAllNotes}
-                className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg"
-              >
-                🛑 Stop All
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={stopAllNotes}
+                  className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg"
+                >
+                  🛑 Stop All
+                </button>
+                <button
+                  onClick={testAudio}
+                  className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg"
+                >
+                  🔊 Test Audio
+                </button>
+              </div>
             )}
           </div>
         </div>
