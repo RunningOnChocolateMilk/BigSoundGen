@@ -1,8 +1,8 @@
 import React from 'react'
-import CompactInterface from './components/CompactInterface'
+import DAWInterface from './components/DAWInterface'
 
 function App() {
-  return <CompactInterface />
+  return <DAWInterface />
 }
 
 export default App
