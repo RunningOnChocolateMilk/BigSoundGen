@@ -561,65 +561,72 @@ const ChordMasterInterface = () => {
   // Recording functions using Web Audio API for professional WAV export
   const startRecording = async () => {
     try {
+      // Ensure audio context is started
+      if (Tone.context.state !== 'running') {
+        await Tone.start()
+      }
+      
       // Get the audio context from Tone.js
       const audioContext = Tone.context
       
-      // Create a ScriptProcessorNode for recording (works for unlimited length)
-      const bufferSize = 4096
-      const recorder = audioContext.createScriptProcessor(bufferSize, 2, 2)
+      // Create a MediaStreamDestination for recording
+      const destination = audioContext.createMediaStreamDestination()
       
-      // Create buffers to store audio data
-      const leftChannel = []
-      const rightChannel = []
+      // Connect synth to the destination
+      synth.connect(destination)
       
-      recorder.onaudioprocess = (event) => {
-        // Get audio data from input
-        const leftInput = event.inputBuffer.getChannelData(0)
-        const rightInput = event.inputBuffer.getChannelData(1)
-        
-        // Store the audio data
-        leftChannel.push(new Float32Array(leftInput))
-        rightChannel.push(new Float32Array(rightInput))
+      // Create MediaRecorder with WAV support
+      let mimeType = 'audio/wav'
+      if (!MediaRecorder.isTypeSupported('audio/wav')) {
+        // Fallback to WebM if WAV not supported
+        mimeType = 'audio/webm;codecs=opus'
+        console.log('WAV not supported, using WebM with Opus')
       }
       
-      // Connect synth to recorder
-      synth.connect(recorder)
-      recorder.connect(audioContext.destination)
+      const recorder = new MediaRecorder(destination.stream, {
+        mimeType: mimeType
+      })
       
-      // Store recording data
-      setRecordingNodes({ recorder, leftChannel, rightChannel })
+      const chunks = []
+      
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          chunks.push(event.data)
+        }
+      }
+      
+      recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: mimeType })
+        setRecordedAudio(blob)
+        setIsRecording(false)
+        console.log('Recording complete - Professional audio:', blob.size, 'bytes')
+      }
+      
+      // Start recording
+      recorder.start(1000) // Collect data every second
+      setMediaRecorder(recorder)
+      setAudioChunks(chunks)
       setIsRecording(true)
       setRecordingTime(0)
       setRecordedAudio(null)
       
-      console.log('Recording started - Professional WAV unlimited length')
+      console.log('Recording started - Professional audio unlimited length')
     } catch (error) {
       console.error('Failed to start recording:', error)
     }
   }
 
   const stopRecording = async () => {
-    if (!recordingNodes || !isRecording) return
+    if (!mediaRecorder || !isRecording) return
     
     try {
       console.log('Stopping recording...')
+      mediaRecorder.stop()
       
-      const { recorder, leftChannel, rightChannel } = recordingNodes
+      // Disconnect synth from the destination
+      synth.disconnect()
       
-      // Disconnect the recorder
-      synth.disconnect(recorder)
-      recorder.disconnect()
-      
-      // Calculate total length
-      const length = leftChannel[0].length * leftChannel.length
-      const sampleRate = Tone.context.sampleRate
-      
-      // Create WAV file
-      const wavBlob = createWAVFile(leftChannel, rightChannel, sampleRate)
-      setRecordedAudio(wavBlob)
-      setIsRecording(false)
-      
-      console.log('Recording stopped - Professional WAV created:', wavBlob.size, 'bytes')
+      console.log('Recording stopped - processing professional audio')
     } catch (error) {
       console.error('Failed to stop recording:', error)
       setIsRecording(false)
@@ -629,35 +636,46 @@ const ChordMasterInterface = () => {
   const exportAsWAV = () => {
     if (!recordedAudio) return
     
-    console.log('Exporting professional WAV file...')
+    console.log('Exporting professional audio file...')
     const url = URL.createObjectURL(recordedAudio)
     const link = document.createElement('a')
     link.href = url
-    link.download = `chordmaster-masterpiece-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.wav`
+    
+    // Determine file extension based on MIME type
+    const isWAV = recordedAudio.type === 'audio/wav'
+    const extension = isWAV ? 'wav' : 'webm'
+    const format = isWAV ? 'WAV' : 'WebM'
+    
+    link.download = `chordmaster-masterpiece-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.${extension}`
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
-    console.log('Professional WAV export complete')
+    console.log(`Professional ${format} export complete`)
   }
 
   const exportAsMP3 = async () => {
     if (!recordedAudio) return
     
     try {
-      console.log('Exporting WAV file (MP3 button exports WAV)...')
+      console.log('Exporting compressed audio file...')
       
-      // Export as WAV since we're not using WebM
       const url = URL.createObjectURL(recordedAudio)
       const link = document.createElement('a')
       link.href = url
-      link.download = `chordmaster-masterpiece-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.wav`
+      
+      // Determine file extension based on MIME type
+      const isWAV = recordedAudio.type === 'audio/wav'
+      const extension = isWAV ? 'wav' : 'webm'
+      const format = isWAV ? 'WAV' : 'WebM'
+      
+      link.download = `chordmaster-masterpiece-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.${extension}`
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
       URL.revokeObjectURL(url)
       
-      console.log('WAV export complete')
+      console.log(`Compressed ${format} export complete`)
     } catch (error) {
       console.error('Failed to export audio:', error)
       // Fallback to WAV if export fails
@@ -1536,13 +1554,13 @@ const ChordMasterInterface = () => {
                         onClick={exportAsWAV}
                         className="p-2 rounded-lg border border-orange-600/50 bg-orange-900/20 hover:bg-orange-800/30 text-orange-200 text-sm transition-all duration-300"
                       >
-                        📁 WAV (Professional)
+                        📁 {recordedAudio?.type === 'audio/wav' ? 'WAV (Professional)' : 'WebM (High Quality)'}
                       </button>
                       <button
                         onClick={exportAsMP3}
                         className="p-2 rounded-lg border border-orange-600/50 bg-orange-900/20 hover:bg-orange-800/30 text-orange-200 text-sm transition-all duration-300"
                       >
-                        🎵 WAV (Lossless)
+                        🎵 {recordedAudio?.type === 'audio/wav' ? 'WAV (Lossless)' : 'WebM (Compressed)'}
                       </button>
                     </div>
                   </div>
