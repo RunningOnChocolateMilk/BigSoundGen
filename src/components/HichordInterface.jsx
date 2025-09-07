@@ -701,8 +701,28 @@ const ChordMasterInterface = () => {
       release: sidechainSettings.release
     })
     
-    // Update LFO frequency based on BPM for sidechain ducking
-    const lfoFreq = metronomeBPM / 60 / 4 // Quarter note sidechain
+    // Calculate LFO frequency based on speed setting
+    let lfoFreq
+    switch (sidechainSettings.speed) {
+      case 'whole':
+        lfoFreq = metronomeBPM / 60 / 1 // Whole note
+        break
+      case 'half':
+        lfoFreq = metronomeBPM / 60 / 2 // Half note
+        break
+      case 'quarter':
+        lfoFreq = metronomeBPM / 60 / 4 // Quarter note
+        break
+      case 'eighth':
+        lfoFreq = metronomeBPM / 60 / 8 // Eighth note
+        break
+      case 'sixteenth':
+        lfoFreq = metronomeBPM / 60 / 16 // Sixteenth note
+        break
+      default:
+        lfoFreq = metronomeBPM / 60 / 4 // Default to quarter note
+    }
+    
     sidechainLFO.set({
       frequency: lfoFreq,
       min: 0.2,
@@ -1121,6 +1141,34 @@ const ChordMasterInterface = () => {
                         onChange={(e) => setSidechainSettings(prev => ({ ...prev, ratio: parseInt(e.target.value) }))}
                         className="w-full h-1 bg-pink-900/50 rounded-lg appearance-none cursor-pointer"
                       />
+                    </div>
+                    
+                    {/* Speed Controls */}
+                    <div className="space-y-2">
+                      <div className="text-xs text-pink-300">Speed</div>
+                      <div className="grid grid-cols-5 gap-1">
+                        {[
+                          { value: 'whole', label: '♩', name: 'Whole' },
+                          { value: 'half', label: '♪', name: 'Half' },
+                          { value: 'quarter', label: '♫', name: 'Quarter' },
+                          { value: 'eighth', label: '♬', name: 'Eighth' },
+                          { value: 'sixteenth', label: '♭', name: '16th' }
+                        ].map((speed) => (
+                          <button
+                            key={speed.value}
+                            onClick={() => setSidechainSettings(prev => ({ ...prev, speed: speed.value }))}
+                            className={`p-2 rounded-lg text-xs transition-all duration-300 ${
+                              sidechainSettings.speed === speed.value
+                                ? 'bg-pink-500 text-white shadow-lg'
+                                : 'bg-pink-900/30 text-pink-300 hover:bg-pink-800/50'
+                            }`}
+                            title={speed.name}
+                          >
+                            <div className="text-lg">{speed.label}</div>
+                            <div className="text-xs">{speed.name}</div>
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
