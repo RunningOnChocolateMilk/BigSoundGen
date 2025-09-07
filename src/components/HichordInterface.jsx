@@ -1096,7 +1096,11 @@ const ChordMasterInterface = () => {
       <header className="bg-gradient-to-r from-purple-800 to-blue-800 border-b border-purple-600 p-6">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <div className="text-4xl">🎵</div>
+            <div className="text-4xl">
+              <svg className="w-10 h-10" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+              </svg>
+            </div>
             <div>
               <h1 className="text-3xl font-bold text-white">ChordMaster</h1>
               <div className="text-sm text-purple-200">Smart Chord Synthesizer</div>
@@ -1116,7 +1120,10 @@ const ChordMasterInterface = () => {
                 onClick={stopAllNotes}
                 className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg"
               >
-                🛑 Stop All
+                <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M6 6h12v12H6z"/>
+                </svg>
+                Stop All
               </button>
             )}
           </div>
@@ -1132,7 +1139,9 @@ const ChordMasterInterface = () => {
             {/* Instrument Selection */}
             <div className="bg-gradient-to-br from-purple-800/30 to-blue-800/30 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/30 shadow-2xl">
               <h2 className="text-xl font-bold text-white mb-6 flex items-center">
-                <span className="text-2xl mr-3">🎹</span>
+                <svg className="w-6 h-6 mr-3" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M20 2H4c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM8 20H4v-4h4v4zm0-6H4v-4h4v4zm0-6H4V4h4v4zm6 12h-4v-4h4v4zm0-6h-4v-4h4v4zm0-6h-4V4h4v4zm6 12h-4v-4h4v4zm0-6h-4v-4h4v4zm0-6h-4V4h4v4z"/>
+                </svg>
                 Sound Palette
               </h2>
               <div className="grid grid-cols-2 gap-3">
@@ -1158,7 +1167,9 @@ const ChordMasterInterface = () => {
             {/* Key Selection */}
             <div className="bg-gradient-to-br from-blue-800/30 to-indigo-800/30 backdrop-blur-sm rounded-2xl p-6 border border-blue-500/30 shadow-2xl">
               <h2 className="text-xl font-bold text-white mb-6 flex items-center">
-                <span className="text-2xl mr-3">🎼</span>
+                <svg className="w-6 h-6 mr-3" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
                 Musical Key
               </h2>
               <div className="grid grid-cols-3 gap-3">
@@ -1181,7 +1192,9 @@ const ChordMasterInterface = () => {
             {/* Metronome */}
             <div className="bg-gradient-to-br from-green-800/30 to-emerald-800/30 backdrop-blur-sm rounded-2xl p-6 border border-green-500/30 shadow-2xl">
               <h2 className="text-xl font-bold text-white mb-6 flex items-center">
-                <span className="text-2xl mr-3">⏱️</span>
+                <svg className="w-6 h-6 mr-3" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                </svg>
                 Rhythm Engine
               </h2>
               

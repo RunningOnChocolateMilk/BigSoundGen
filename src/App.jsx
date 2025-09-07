@@ -1,8 +1,8 @@
 import React from 'react'
-import DAWInterface from './components/DAWInterface'
+import HichordInterface from './components/HichordInterface'
 
 function App() {
-  return <DAWInterface />
+  return <HichordInterface />
 }
 
 export default App
