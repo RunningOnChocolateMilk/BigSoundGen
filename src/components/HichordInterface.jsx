@@ -36,7 +36,8 @@ const ChordMasterInterface = () => {
     threshold: -20,
     ratio: 4,
     attack: 0.01,
-    release: 0.1
+    release: 0.1,
+    speed: 'quarter' // quarter, eighth, sixteenth, half, whole
   })
   const [displayMode, setDisplayMode] = useState('chord') // chord, progression, settings
 
@@ -54,6 +55,46 @@ const ChordMasterInterface = () => {
   // Web Audio API recording for unlimited length
   const [mediaRecorder, setMediaRecorder] = useState(null)
   const [audioChunks, setAudioChunks] = useState([])
+  
+  // Drum Machine State
+  const [drumMachine, setDrumMachine] = useState({
+    isEnabled: false,
+    isPlaying: false,
+    isRecording: false,
+    currentPattern: 0,
+    patterns: [], // Array of pattern objects
+    samples: {}, // Sample library
+    volume: 0.7,
+    swing: 0,
+    quantization: '16th' // 4th, 8th, 16th, 32nd
+  })
+  
+  // Sequencer State
+  const [sequencer, setSequencer] = useState({
+    isEnabled: false,
+    isPlaying: false,
+    currentStep: 0,
+    totalSteps: 16,
+    tracks: [], // Array of track objects
+    tempo: 120,
+    loopLength: 16
+  })
+  
+  // Audio Looper State
+  const [audioLooper, setAudioLooper] = useState({
+    isEnabled: false,
+    isPlaying: false,
+    isRecording: false,
+    tracks: [], // Array of loop tracks
+    currentTrack: 0,
+    loopLength: 4, // bars
+    quantization: 'bar', // bar, half, quarter
+    overdub: false
+  })
+  
+  // Navigation State
+  const [activePanel, setActivePanel] = useState('sequencer') // sequencer, synth, beatmaker
+  const [showPanels, setShowPanels] = useState(false)
 
   // Instrument presets with realistic and unique sounds
   const instrumentPresets = {
@@ -343,8 +384,117 @@ const ChordMasterInterface = () => {
         // Initialize recorder
         const newRecorder = new Tone.Recorder()
         setRecorder(newRecorder)
+        
+        // Initialize drum machine
+        initDrumMachine()
       } catch (error) {
         console.error('Failed to initialize synthesizer:', error)
+      }
+    }
+
+    // Initialize drum machine with samples
+    const initDrumMachine = async () => {
+      try {
+        // Create drum samples using Tone.js synthesizers
+        const drumSamples = {
+          kick: new Tone.MembraneSynth({
+            pitchDecay: 0.05,
+            octaves: 10,
+            oscillator: { type: 'triangle' },
+            envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1.4 }
+          }),
+          snare: new Tone.NoiseSynth({
+            noise: { type: 'white' },
+            envelope: { attack: 0.005, decay: 0.1, sustain: 0, release: 0.1 }
+          }),
+          hihat: new Tone.MetalSynth({
+            frequency: 200,
+            envelope: { attack: 0.001, decay: 0.1, release: 0.01 },
+            harmonicity: 5.1,
+            modulationIndex: 32,
+            resonance: 4000,
+            octaves: 1.5
+          }),
+          openhat: new Tone.MetalSynth({
+            frequency: 200,
+            envelope: { attack: 0.001, decay: 0.5, release: 0.01 },
+            harmonicity: 5.1,
+            modulationIndex: 32,
+            resonance: 4000,
+            octaves: 1.5
+          }),
+          crash: new Tone.MetalSynth({
+            frequency: 200,
+            envelope: { attack: 0.001, decay: 1, release: 0.01 },
+            harmonicity: 5.1,
+            modulationIndex: 32,
+            resonance: 4000,
+            octaves: 1.5
+          }),
+          clap: new Tone.NoiseSynth({
+            noise: { type: 'pink' },
+            envelope: { attack: 0.005, decay: 0.1, sustain: 0, release: 0.1 }
+          })
+        }
+
+        // Connect all drum samples to master output
+        Object.values(drumSamples).forEach(sample => {
+          sample.toDestination()
+        })
+
+        // Initialize patterns array
+        const initialPatterns = Array(8).fill(null).map((_, index) => ({
+          id: index,
+          name: `Pattern ${index + 1}`,
+          steps: 16,
+          tracks: {
+            kick: Array(16).fill(false),
+            snare: Array(16).fill(false),
+            hihat: Array(16).fill(false),
+            openhat: Array(16).fill(false),
+            crash: Array(16).fill(false),
+            clap: Array(16).fill(false)
+          }
+        }))
+
+        setDrumMachine(prev => ({
+          ...prev,
+          samples: drumSamples,
+          patterns: initialPatterns
+        }))
+
+        console.log('Drum machine initialized with samples')
+      } catch (error) {
+        console.error('Failed to initialize drum machine:', error)
+      }
+    }
+
+    // Initialize audio looper
+    const initAudioLooper = async () => {
+      try {
+        // Create initial loop tracks
+        const initialTracks = Array(8).fill(null).map((_, index) => ({
+          id: index,
+          name: `Track ${index + 1}`,
+          isActive: false,
+          isRecording: false,
+          hasContent: false,
+          loop: null, // Tone.js Loop object
+          recorder: null, // Tone.js Recorder
+          volume: 0.7,
+          pan: 0,
+          mute: false,
+          solo: false
+        }))
+
+        setAudioLooper(prev => ({
+          ...prev,
+          tracks: initialTracks
+        }))
+
+        console.log('Audio looper initialized with 8 tracks')
+      } catch (error) {
+        console.error('Failed to initialize audio looper:', error)
       }
     }
 
@@ -654,6 +804,161 @@ const ChordMasterInterface = () => {
 
 
 
+  // Drum Machine Functions
+  const playDrumSample = (sampleName) => {
+    if (!drumMachine.samples[sampleName]) return
+    
+    try {
+      drumMachine.samples[sampleName].triggerAttackRelease('C4', '8n')
+    } catch (error) {
+      console.error(`Failed to play ${sampleName}:`, error)
+    }
+  }
+
+  const toggleDrumMachine = () => {
+    setDrumMachine(prev => ({
+      ...prev,
+      isEnabled: !prev.isEnabled
+    }))
+  }
+
+  const toggleDrumPlayback = () => {
+    setDrumMachine(prev => ({
+      ...prev,
+      isPlaying: !prev.isPlaying
+    }))
+  }
+
+  const toggleDrumRecording = () => {
+    setDrumMachine(prev => ({
+      ...prev,
+      isRecording: !prev.isRecording
+    }))
+  }
+
+  const selectDrumPattern = (patternIndex) => {
+    setDrumMachine(prev => ({
+      ...prev,
+      currentPattern: patternIndex
+    }))
+  }
+
+  const toggleDrumStep = (track, step) => {
+    setDrumMachine(prev => {
+      const newPatterns = [...prev.patterns]
+      newPatterns[prev.currentPattern].tracks[track][step] = !newPatterns[prev.currentPattern].tracks[track][step]
+      return {
+        ...prev,
+        patterns: newPatterns
+      }
+    })
+  }
+
+  // Audio Looper Functions
+  const toggleAudioLooper = () => {
+    setAudioLooper(prev => ({
+      ...prev,
+      isEnabled: !prev.isEnabled
+    }))
+  }
+
+  const toggleLooperPlayback = () => {
+    setAudioLooper(prev => ({
+      ...prev,
+      isPlaying: !prev.isPlaying
+    }))
+  }
+
+  const startLoopRecording = (trackId) => {
+    setAudioLooper(prev => {
+      const newTracks = [...prev.tracks]
+      const track = newTracks.find(t => t.id === trackId)
+      if (track) {
+        track.isRecording = true
+        track.isActive = true
+      }
+      return {
+        ...prev,
+        tracks: newTracks,
+        isRecording: true
+      }
+    })
+  }
+
+  const stopLoopRecording = (trackId) => {
+    setAudioLooper(prev => {
+      const newTracks = [...prev.tracks]
+      const track = newTracks.find(t => t.id === trackId)
+      if (track) {
+        track.isRecording = false
+        track.hasContent = true
+      }
+      return {
+        ...prev,
+        tracks: newTracks,
+        isRecording: false
+      }
+    })
+  }
+
+  const clearLoop = (trackId) => {
+    setAudioLooper(prev => {
+      const newTracks = [...prev.tracks]
+      const track = newTracks.find(t => t.id === trackId)
+      if (track) {
+        track.hasContent = false
+        track.isActive = false
+        if (track.loop) {
+          track.loop.stop()
+          track.loop.dispose()
+          track.loop = null
+        }
+      }
+      return {
+        ...prev,
+        tracks: newTracks
+      }
+    })
+  }
+
+  const toggleTrackMute = (trackId) => {
+    setAudioLooper(prev => {
+      const newTracks = [...prev.tracks]
+      const track = newTracks.find(t => t.id === trackId)
+      if (track) {
+        track.mute = !track.mute
+      }
+      return {
+        ...prev,
+        tracks: newTracks
+      }
+    })
+  }
+
+  const toggleTrackSolo = (trackId) => {
+    setAudioLooper(prev => {
+      const newTracks = [...prev.tracks]
+      const track = newTracks.find(t => t.id === trackId)
+      if (track) {
+        track.solo = !track.solo
+      }
+      return {
+        ...prev,
+        tracks: newTracks
+      }
+    })
+  }
+
+  // Navigation Functions
+  const togglePanels = () => {
+    setShowPanels(!showPanels)
+  }
+
+  const switchPanel = (panel) => {
+    setActivePanel(panel)
+    setShowPanels(false)
+  }
+
   // Recording timer
   useEffect(() => {
     let interval = null
@@ -700,8 +1005,28 @@ const ChordMasterInterface = () => {
       release: sidechainSettings.release
     })
     
-    // Update LFO frequency based on BPM for sidechain ducking
-    const lfoFreq = metronomeBPM / 60 / 4 // Quarter note sidechain
+    // Calculate LFO frequency based on speed setting
+    let lfoFreq
+    switch (sidechainSettings.speed) {
+      case 'whole':
+        lfoFreq = metronomeBPM / 60 / 1 // Whole note
+        break
+      case 'half':
+        lfoFreq = metronomeBPM / 60 / 2 // Half note
+        break
+      case 'quarter':
+        lfoFreq = metronomeBPM / 60 / 4 // Quarter note
+        break
+      case 'eighth':
+        lfoFreq = metronomeBPM / 60 / 8 // Eighth note
+        break
+      case 'sixteenth':
+        lfoFreq = metronomeBPM / 60 / 16 // Sixteenth note
+        break
+      default:
+        lfoFreq = metronomeBPM / 60 / 4 // Default to quarter note
+    }
+    
     sidechainLFO.set({
       frequency: lfoFreq,
       min: 0.2,
@@ -1120,6 +1445,356 @@ const ChordMasterInterface = () => {
                         onChange={(e) => setSidechainSettings(prev => ({ ...prev, ratio: parseInt(e.target.value) }))}
                         className="w-full h-1 bg-pink-900/50 rounded-lg appearance-none cursor-pointer"
                       />
+                    </div>
+                    
+                    {/* Speed Controls */}
+                    <div className="space-y-2">
+                      <div className="text-xs text-pink-300">Speed</div>
+                      <div className="grid grid-cols-5 gap-1">
+                        {[
+                          { value: 'whole', label: '♩', name: 'Whole' },
+                          { value: 'half', label: '♪', name: 'Half' },
+                          { value: 'quarter', label: '♫', name: 'Quarter' },
+                          { value: 'eighth', label: '♬', name: 'Eighth' },
+                          { value: 'sixteenth', label: '♭', name: '16th' }
+                        ].map((speed) => (
+                          <button
+                            key={speed.value}
+                            onClick={() => setSidechainSettings(prev => ({ ...prev, speed: speed.value }))}
+                            className={`p-2 rounded-lg text-xs transition-all duration-300 ${
+                              sidechainSettings.speed === speed.value
+                                ? 'bg-pink-500 text-white shadow-lg'
+                                : 'bg-pink-900/30 text-pink-300 hover:bg-pink-800/50'
+                            }`}
+                            title={speed.name}
+                          >
+                            <div className="text-lg">{speed.label}</div>
+                            <div className="text-xs">{speed.name}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Drum Machine */}
+            <div className="bg-gradient-to-br from-purple-800/30 to-indigo-800/30 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/30 shadow-2xl">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-white flex items-center">
+                  <span className="text-2xl mr-3">🥁</span>
+                  Drum Machine
+                </h2>
+                <button
+                  onClick={toggleDrumMachine}
+                  className={`px-4 py-2 rounded-lg font-semibold transition-all duration-300 ${
+                    drumMachine.isEnabled
+                      ? 'bg-purple-500 text-white shadow-lg'
+                      : 'bg-purple-900/50 text-purple-300 hover:bg-purple-800/50'
+                  }`}
+                >
+                  {drumMachine.isEnabled ? 'ON' : 'OFF'}
+                </button>
+              </div>
+
+              {drumMachine.isEnabled && (
+                <div className="space-y-6">
+                  {/* Pattern Selection */}
+                  <div className="space-y-3">
+                    <h3 className="text-purple-200 font-semibold">Patterns</h3>
+                    <div className="grid grid-cols-4 gap-2">
+                      {drumMachine.patterns.map((pattern, index) => (
+                        <button
+                          key={index}
+                          onClick={() => selectDrumPattern(index)}
+                          className={`p-3 rounded-lg font-semibold transition-all duration-300 ${
+                            drumMachine.currentPattern === index
+                              ? 'bg-purple-500 text-white shadow-lg'
+                              : 'bg-purple-900/30 text-purple-300 hover:bg-purple-800/50'
+                          }`}
+                        >
+                          {pattern.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Drum Pads */}
+                  <div className="space-y-3">
+                    <h3 className="text-purple-200 font-semibold">Drum Pads</h3>
+                    <div className="grid grid-cols-3 gap-3">
+                      {[
+                        { name: 'kick', label: 'Kick', color: 'red' },
+                        { name: 'snare', label: 'Snare', color: 'blue' },
+                        { name: 'hihat', label: 'Hi-Hat', color: 'green' },
+                        { name: 'openhat', label: 'Open Hat', color: 'yellow' },
+                        { name: 'crash', label: 'Crash', color: 'orange' },
+                        { name: 'clap', label: 'Clap', color: 'pink' }
+                      ].map((drum) => (
+                        <button
+                          key={drum.name}
+                          onMouseDown={() => playDrumSample(drum.name)}
+                          className={`p-4 rounded-lg font-semibold transition-all duration-200 hover:scale-105 active:scale-95 bg-${drum.color}-900/30 text-${drum.color}-300 hover:bg-${drum.color}-800/50 border border-${drum.color}-600/50`}
+                        >
+                          {drum.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Sequencer Grid */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-purple-200 font-semibold">Sequencer</h3>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={toggleDrumPlayback}
+                          className={`px-3 py-1 rounded-lg text-sm font-semibold transition-all duration-300 ${
+                            drumMachine.isPlaying
+                              ? 'bg-green-500 text-white'
+                              : 'bg-purple-900/50 text-purple-300 hover:bg-purple-800/50'
+                          }`}
+                        >
+                          {drumMachine.isPlaying ? '⏸️' : '▶️'}
+                        </button>
+                        <button
+                          onClick={toggleDrumRecording}
+                          className={`px-3 py-1 rounded-lg text-sm font-semibold transition-all duration-300 ${
+                            drumMachine.isRecording
+                              ? 'bg-red-500 text-white'
+                              : 'bg-purple-900/50 text-purple-300 hover:bg-purple-800/50'
+                          }`}
+                        >
+                          {drumMachine.isRecording ? '⏹️' : '🔴'}
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {/* Step Grid */}
+                    <div className="space-y-2">
+                      {Object.entries(drumMachine.patterns[drumMachine.currentPattern]?.tracks || {}).map(([track, steps]) => (
+                        <div key={track} className="flex items-center gap-2">
+                          <div className="w-16 text-xs text-purple-300 font-semibold capitalize">
+                            {track}
+                          </div>
+                          <div className="flex gap-1">
+                            {steps.map((isActive, stepIndex) => (
+                              <button
+                                key={stepIndex}
+                                onClick={() => toggleDrumStep(track, stepIndex)}
+                                className={`w-8 h-8 rounded transition-all duration-200 ${
+                                  isActive
+                                    ? 'bg-purple-500 shadow-lg'
+                                    : 'bg-purple-900/30 hover:bg-purple-800/50'
+                                }`}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Loop Controls */}
+                  <div className="space-y-3">
+                    <h3 className="text-purple-200 font-semibold">Loop Structure</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-xs text-purple-300">Loop Length</label>
+                        <select
+                          value={sequencer.loopLength}
+                          onChange={(e) => setSequencer(prev => ({ ...prev, loopLength: parseInt(e.target.value) }))}
+                          className="w-full p-2 rounded-lg bg-purple-900/30 text-purple-300 border border-purple-600/50"
+                        >
+                          <option value={4}>4 Steps</option>
+                          <option value={8}>8 Steps</option>
+                          <option value={16}>16 Steps</option>
+                          <option value={32}>32 Steps</option>
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs text-purple-300">Quantization</label>
+                        <select
+                          value={drumMachine.quantization}
+                          onChange={(e) => setDrumMachine(prev => ({ ...prev, quantization: e.target.value }))}
+                          className="w-full p-2 rounded-lg bg-purple-900/30 text-purple-300 border border-purple-600/50"
+                        >
+                          <option value="4th">Quarter Note</option>
+                          <option value="8th">Eighth Note</option>
+                          <option value="16th">Sixteenth Note</option>
+                          <option value="32nd">32nd Note</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Audio Looper */}
+            <div className="bg-gradient-to-br from-teal-800/30 to-cyan-800/30 backdrop-blur-sm rounded-2xl p-6 border border-teal-500/30 shadow-2xl">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-white flex items-center">
+                  <span className="text-2xl mr-3">🔄</span>
+                  Audio Looper
+                </h2>
+                <button
+                  onClick={toggleAudioLooper}
+                  className={`px-4 py-2 rounded-lg font-semibold transition-all duration-300 ${
+                    audioLooper.isEnabled
+                      ? 'bg-teal-500 text-white shadow-lg'
+                      : 'bg-teal-900/50 text-teal-300 hover:bg-teal-800/50'
+                  }`}
+                >
+                  {audioLooper.isEnabled ? 'ON' : 'OFF'}
+                </button>
+              </div>
+
+              {audioLooper.isEnabled && (
+                <div className="space-y-6">
+                  {/* Master Controls */}
+                  <div className="flex items-center justify-between p-4 bg-teal-900/20 rounded-xl">
+                    <div className="flex items-center gap-4">
+                      <button
+                        onClick={toggleLooperPlayback}
+                        className={`px-6 py-3 rounded-lg font-semibold transition-all duration-300 ${
+                          audioLooper.isPlaying
+                            ? 'bg-red-500 text-white'
+                            : 'bg-green-500 text-white hover:bg-green-600'
+                        }`}
+                      >
+                        {audioLooper.isPlaying ? '⏸️ STOP' : '▶️ PLAY'}
+                      </button>
+                      <div className="text-teal-200 text-sm">
+                        {audioLooper.isPlaying ? 'Playing' : 'Stopped'}
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-4">
+                      <div className="space-y-1">
+                        <label className="text-xs text-teal-300">Loop Length</label>
+                        <select
+                          value={audioLooper.loopLength}
+                          onChange={(e) => setAudioLooper(prev => ({ ...prev, loopLength: parseInt(e.target.value) }))}
+                          className="px-3 py-1 rounded-lg bg-teal-900/30 text-teal-300 border border-teal-600/50 text-sm"
+                        >
+                          <option value={1}>1 Bar</option>
+                          <option value={2}>2 Bars</option>
+                          <option value={4}>4 Bars</option>
+                          <option value={8}>8 Bars</option>
+                        </select>
+                      </div>
+                      
+                      <div className="space-y-1">
+                        <label className="text-xs text-teal-300">Quantization</label>
+                        <select
+                          value={audioLooper.quantization}
+                          onChange={(e) => setAudioLooper(prev => ({ ...prev, quantization: e.target.value }))}
+                          className="px-3 py-1 rounded-lg bg-teal-900/30 text-teal-300 border border-teal-600/50 text-sm"
+                        >
+                          <option value="bar">Bar</option>
+                          <option value="half">Half Bar</option>
+                          <option value="quarter">Quarter Bar</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Track List */}
+                  <div className="space-y-3">
+                    <h3 className="text-teal-200 font-semibold">Loop Tracks</h3>
+                    <div className="space-y-2">
+                      {audioLooper.tracks.map((track) => (
+                        <div key={track.id} className={`p-4 rounded-xl border transition-all duration-300 ${
+                          track.hasContent 
+                            ? 'bg-teal-900/30 border-teal-500/50' 
+                            : 'bg-teal-900/10 border-teal-700/30'
+                        }`}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <div className="w-8 h-8 rounded-full bg-teal-600 flex items-center justify-center text-white font-bold text-sm">
+                                {track.id + 1}
+                              </div>
+                              <div>
+                                <div className="text-teal-200 font-semibold">{track.name}</div>
+                                <div className="text-teal-400 text-xs">
+                                  {track.hasContent ? 'Has Loop' : 'Empty'}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-2">
+                              {/* Track Controls */}
+                              <button
+                                onClick={() => toggleTrackMute(track.id)}
+                                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all duration-300 ${
+                                  track.mute 
+                                    ? 'bg-red-500 text-white' 
+                                    : 'bg-teal-900/50 text-teal-300 hover:bg-teal-800/50'
+                                }`}
+                              >
+                                {track.mute ? '🔇' : '🔊'}
+                              </button>
+                              
+                              <button
+                                onClick={() => toggleTrackSolo(track.id)}
+                                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all duration-300 ${
+                                  track.solo 
+                                    ? 'bg-yellow-500 text-white' 
+                                    : 'bg-teal-900/50 text-teal-300 hover:bg-teal-800/50'
+                                }`}
+                              >
+                                S
+                              </button>
+                              
+                              {/* Recording Controls */}
+                              {!track.hasContent ? (
+                                <button
+                                  onClick={() => startLoopRecording(track.id)}
+                                  className="px-4 py-2 rounded-lg bg-red-500 text-white font-semibold hover:bg-red-600 transition-all duration-300"
+                                >
+                                  🔴 REC
+                                </button>
+                              ) : (
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => startLoopRecording(track.id)}
+                                    className="px-3 py-1 rounded-lg bg-orange-500 text-white text-xs font-semibold hover:bg-orange-600 transition-all duration-300"
+                                  >
+                                    OVERDUB
+                                  </button>
+                                  <button
+                                    onClick={() => clearLoop(track.id)}
+                                    className="px-3 py-1 rounded-lg bg-gray-500 text-white text-xs font-semibold hover:bg-gray-600 transition-all duration-300"
+                                  >
+                                    CLEAR
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* Track Status */}
+                          {track.isRecording && (
+                            <div className="mt-3 flex items-center gap-2 text-red-400 text-sm">
+                              <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                              Recording...
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Quick Tips */}
+                  <div className="p-4 bg-teal-900/20 rounded-xl">
+                    <h4 className="text-teal-200 font-semibold mb-2">💡 How to Use:</h4>
+                    <div className="text-teal-300 text-sm space-y-1">
+                      <div>1. Click <span className="bg-teal-700 px-1 rounded">🔴 REC</span> to record your first loop</div>
+                      <div>2. Play chords or melodies - they'll loop automatically</div>
+                      <div>3. Use <span className="bg-teal-700 px-1 rounded">OVERDUB</span> to add layers</div>
+                      <div>4. Click <span className="bg-teal-700 px-1 rounded">▶️ PLAY</span> to hear all tracks together</div>
                     </div>
                   </div>
                 </div>

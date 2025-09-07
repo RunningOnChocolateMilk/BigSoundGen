@@ -1,8 +1,8 @@
 import React from 'react'
-import ChordMasterInterface from './components/HichordInterface'
+import CompactInterface from './components/CompactInterface'
 
 function App() {
-  return <ChordMasterInterface />
+  return <CompactInterface />
 }
 
 export default App
